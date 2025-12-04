@@ -11,10 +11,10 @@ Most LLM memory systems use key-value stores or vector retrieval. ABES tries som
 
 Right now it's mostly Pydantic models and empty function stubs – no magic brain yet.
 
-> **We are currently in very early development (Phase 0 – Project Setup & Skeleton)**.
+> **Currently in very early development (Phase 0 – Project Setup & Skeleton)**.
 > The codebase is mostly scaffolding and data models at this stage.
 
-## What we're building
+## What I'm building
 
 A cognitively realistic long-term memory system where:
 
@@ -58,7 +58,7 @@ scripts/          → Utilities and one-off tools
 - Initial `pyproject.toml` / `package.json` setup in progress
 - No functional code yet – we are strictly following phased development
 
-We're implementing **one phase at a time**, sticking closely to the spec.
+I'm implementing **one phase at a time**, sticking closely to the spec.
 
 ### Development Phases (Active: Phase 0)
 
@@ -91,9 +91,9 @@ Until then: watch this space.
 
 This is a research-driven project with a very strict specification.
 
-We're not accepting PRs yet – the initial implementation must match the spec exactly.
+I'm not accepting PRs yet – the initial implementation must match the spec exactly.
 
-Once Phase 1+ is complete and stable, we'll welcome:
+Once Phase 1+ is complete and stable, I'll welcome:
 
 - Bug reports
 - Performance improvements
