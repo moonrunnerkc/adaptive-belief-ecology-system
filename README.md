@@ -5,14 +5,14 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14+-black.svg)](https://nextjs.org/)
 ![Early Development](https://img.shields.io/badge/status-early%20development-orange)
 
-ABES is an open-source research platform for exploring **Belief Ecology** – treating beliefs as living, evolving entities instead of static memory entries.
+ABES is an open-source research platform for exploring **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
 
 Most LLM memory systems use key-value stores or vector retrieval. ABES tries something different: beliefs decay over time, contradict each other, mutate when evidence is ambiguous, and cluster around related concepts. The design calls for 15 specialized agents and reinforcement learning to manage this ecology.
 
-Right now it's mostly Pydantic models and empty function stubs – no magic brain yet.
+Right now it's mostly Pydantic models and empty function stubs. No magic brain yet.
 
-> **Currently in very early development (Phase 0 – Project Setup & Skeleton)**.
-> The codebase is mostly scaffolding and data models at this stage.
+> **Currently in very early development.**
+> The codebase is mostly data models at this stage.
 
 ## What I'm building
 
@@ -31,7 +31,7 @@ Exposed through a UI that shows beliefs moving around as a graph instead of maki
 
 | Component | What it does |
 |-----------|--------------|
-| **Belief Ecology Engine** | Main loop: decay → detect contradictions → mutate/resolve → re-rank beliefs |
+| **Belief Ecology Engine** | Main loop: decay, detect contradictions, mutate/resolve, re-rank beliefs |
 | **15 Specialized Agents** | Perception, Creation, Reinforcement, Mutation, Resolution, RL Policy, etc. |
 | **Reinforcement Learning** | Learns decay rates, thresholds, and selection weights from experience |
 | **Snapshot & Time Travel** | Captures full state every iteration so you can replay belief evolution |
@@ -41,14 +41,14 @@ Exposed through a UI that shows beliefs moving around as a graph instead of maki
 ## Repository Structure
 
 ```
-backend/          → FastAPI + Pydantic (belief models, ecology loop, agents, RL)
-frontend/         → Next.js 14+ with TypeScript and Tailwind
-experiments/      → Test scenarios and result analysis
-configs/          → Ecology parameters, RL hyperparameters, agent settings
-docs/             → Architecture notes, agent specs, research documents
-data/             → (future) embeddings, snapshots, experiment logs
-infra/            → Docker configs, dev scripts, CI
-scripts/          → Utilities and one-off tools
+backend/          - FastAPI + Pydantic (belief models, ecology loop, agents, RL)
+frontend/         - Next.js 14+ with TypeScript and Tailwind
+experiments/      - Test scenarios and result analysis
+configs/          - Ecology parameters, RL hyperparameters, agent settings
+docs/             - Architecture notes, agent specs, research documents
+data/             - (future) embeddings, snapshots, experiment logs
+infra/            - Docker configs, dev scripts, CI
+scripts/          - Utilities and one-off tools
 ```
 
 ## Current Status (December 2025)
