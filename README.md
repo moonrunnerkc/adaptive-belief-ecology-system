@@ -53,21 +53,16 @@ scripts/          → Utilities and one-off tools
 
 ## Current Status (December 2025)
 
-- Project skeleton created
-- Root directories and basic config files in place
-- Initial `pyproject.toml` / `package.json` setup in progress
-- No functional code yet – we are strictly following phased development
+**What's done:**
+- Project skeleton and directory structure
+- Core belief models (`backend/core/models/belief.py`) with full Pydantic v2 validation
+- Basic config files and `.gitignore`
 
-I'm implementing **one phase at a time**, sticking closely to the spec.
-
-### Development Phases (Active: Phase 0)
-
-| Phase | Status          | Description                               |
-|-------|-----------------|-------------------------------------------|
-| 0     | **In Progress** | Project setup, skeleton, tooling          |
-| 1     | Not started     | Core Belief model + storage layer         |
-| 2     | Not started     | Belief Ecology Loop (BEL)                 |
-| 3–15  | Not started     | Agents → RL → API → UI → Benchmarks       |
+**What's next:**
+- Storage layer for belief persistence
+- Belief Ecology Loop implementation
+- Agent system
+- Everything else from the spec
 
 ## Getting Started (When Ready)
 
