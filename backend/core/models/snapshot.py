@@ -3,7 +3,7 @@ Snapshot models for capturing belief ecology state at specific iterations.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -90,5 +90,91 @@ class Snapshot(SnapshotBaseModel):
             raise ValueError(f"global_tension cannot be negative, got {v}")
         return v
 
+    @classmethod
+    def diff(cls, prev: Optional["Snapshot"], current: "Snapshot") -> "SnapshotDiff":
+        """
+        Compute differences between two snapshots.
+        If prev is None, treats all current beliefs as added.
+        """
+        if prev is None:
+            # everything in current is new
+            return SnapshotDiff(
+                added=current.beliefs,
+                removed=[],
+                mutated=[],
+                tension_delta=current.global_tension,
+                belief_count_delta=len(current.beliefs),
+                notable_events=[
+                    f"Initial snapshot with {len(current.beliefs)} beliefs"
+                ],
+            )
 
-__all__ = ["SnapshotMetadata", "BeliefSnapshot", "Snapshot"]
+        # build maps for efficient lookup
+        prev_beliefs = {b.id: b for b in prev.beliefs}
+        current_beliefs = {b.id: b for b in current.beliefs}
+
+        # compute added/removed
+        added_ids = set(current_beliefs.keys()) - set(prev_beliefs.keys())
+        removed_ids = set(prev_beliefs.keys()) - set(current_beliefs.keys())
+
+        added = [current_beliefs[bid] for bid in added_ids]
+        removed = [prev_beliefs[bid] for bid in removed_ids]
+
+        # compute mutated (same ID but changed)
+        mutated: List[Tuple[BeliefSnapshot, BeliefSnapshot]] = []
+        for bid in set(current_beliefs.keys()) & set(prev_beliefs.keys()):
+            old_b = prev_beliefs[bid]
+            new_b = current_beliefs[bid]
+
+            # check if anything meaningful changed
+            if (
+                old_b.content != new_b.content
+                or old_b.confidence != new_b.confidence
+                or old_b.status != new_b.status
+                or old_b.tension != new_b.tension
+            ):
+                mutated.append((old_b, new_b))
+
+        # compute deltas
+        tension_delta = current.global_tension - prev.global_tension
+        belief_count_delta = len(current.beliefs) - len(prev.beliefs)
+
+        # generate notable events
+        notable_events: List[str] = []
+        if len(added) > 0:
+            notable_events.append(f"{len(added)} beliefs added")
+        if len(removed) > 0:
+            notable_events.append(f"{len(removed)} beliefs removed")
+        if len(mutated) > 0:
+            notable_events.append(f"{len(mutated)} beliefs mutated")
+        if abs(tension_delta) > 0.1:
+            direction = "increased" if tension_delta > 0 else "decreased"
+            notable_events.append(
+                f"Global tension {direction} by {abs(tension_delta):.2f}"
+            )
+
+        return SnapshotDiff(
+            added=added,
+            removed=removed,
+            mutated=mutated,
+            tension_delta=tension_delta,
+            belief_count_delta=belief_count_delta,
+            notable_events=notable_events,
+        )
+
+
+class SnapshotDiff(SnapshotBaseModel):
+    """
+    Differences between two snapshots. Useful for understanding
+    how the ecology changed between iterations.
+    """
+
+    added: List[BeliefSnapshot] = Field(default_factory=list)
+    removed: List[BeliefSnapshot] = Field(default_factory=list)
+    mutated: List[Tuple[BeliefSnapshot, BeliefSnapshot]] = Field(default_factory=list)
+    tension_delta: float = 0.0
+    belief_count_delta: int = 0
+    notable_events: List[str] = Field(default_factory=list)
+
+
+__all__ = ["SnapshotMetadata", "BeliefSnapshot", "Snapshot", "SnapshotDiff"]
