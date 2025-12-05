@@ -7,6 +7,7 @@ from .decay import apply_decay
 from .loop import BeliefEcologyLoop
 from .ranking import rank_beliefs
 from .relevance import compute_relevance_scores
+from .snapshot_compression import compress_snapshot, decompress_snapshot
 from .snapshot_logger import log_snapshot
 
 __all__ = [
@@ -16,4 +17,6 @@ __all__ = [
     "compute_relevance_scores",
     "rank_beliefs",
     "log_snapshot",
+    "compress_snapshot",
+    "decompress_snapshot",
 ]
