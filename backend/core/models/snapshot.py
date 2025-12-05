@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from .belief import BeliefStatus, OriginMetadata, utcnow
 
+__all__ = ["SnapshotMetadata", "BeliefSnapshot", "Snapshot", "SnapshotDiff"]
+
 
 class SnapshotBaseModel(BaseModel):
     model_config = {
@@ -22,7 +24,7 @@ class SnapshotBaseModel(BaseModel):
 
 
 class SnapshotMetadata(SnapshotBaseModel):
-    """Metadata about when and why a snapshot was captured."""
+    """When and why a snapshot was taken"""
 
     iteration: int
     timestamp: datetime = Field(default_factory=utcnow)
@@ -38,8 +40,8 @@ class SnapshotMetadata(SnapshotBaseModel):
 
 class BeliefSnapshot(SnapshotBaseModel):
     """
-    Read-only copy of a belief at snapshot time.
-    frozen=True prevents field reassignment. Nested objects (origin, tags) are still mutable.
+    Frozen belief state at snapshot time.
+    Can't mutate fields after creation but origin/tags refs are still mutable.
     """
 
     id: UUID
@@ -57,7 +59,7 @@ class BeliefSnapshot(SnapshotBaseModel):
 
     model_config = {
         "from_attributes": True,
-        "frozen": True,  # prevents field assignment
+        "frozen": True,
         "json_encoders": {
             datetime: lambda v: v.isoformat(),
             UUID: lambda v: str(v),
@@ -75,13 +77,10 @@ class Snapshot(SnapshotBaseModel):
     metadata: SnapshotMetadata
     beliefs: List[BeliefSnapshot]
     global_tension: float = 0.0
-    cluster_metrics: Dict[str, dict] = Field(
-        default_factory=dict
-    )  # TODO: tighten to TypedDict
-    agent_actions: List[dict] = Field(
-        default_factory=list
-    )  # TODO: define AgentAction model
-    rl_state_action: Optional[dict] = None  # TODO: define RLStateAction model
+    cluster_metrics: Dict[str, dict] = Field(default_factory=dict)
+    agent_actions: List[dict] = Field(default_factory=lambda: [])
+    events: List = Field(default_factory=list)  # List[BaseEvent] from events.py
+    rl_state_action: Optional[dict] = None
 
     @field_validator("global_tension")
     @classmethod
@@ -164,17 +163,11 @@ class Snapshot(SnapshotBaseModel):
 
 
 class SnapshotDiff(SnapshotBaseModel):
-    """
-    Differences between two snapshots. Useful for understanding
-    how the ecology changed between iterations.
-    """
+    """Tracks what changed between two snapshots"""
 
     added: List[BeliefSnapshot] = Field(default_factory=list)
     removed: List[BeliefSnapshot] = Field(default_factory=list)
     mutated: List[Tuple[BeliefSnapshot, BeliefSnapshot]] = Field(default_factory=list)
     tension_delta: float = 0.0
     belief_count_delta: int = 0
-    notable_events: List[str] = Field(default_factory=list)
-
-
-__all__ = ["SnapshotMetadata", "BeliefSnapshot", "Snapshot", "SnapshotDiff"]
+    notable_events: List[str] = Field(default_factory=lambda: [])

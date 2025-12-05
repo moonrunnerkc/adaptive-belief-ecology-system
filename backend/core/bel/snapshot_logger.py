@@ -6,15 +6,17 @@ Persists full ecology state for replay, analysis, and debugging.
 from typing import List
 
 from ...storage import Belief, Snapshot, SnapshotMetadata
+from ..events import EventLog
 from ..models.snapshot import BeliefSnapshot
 
 
 async def log_snapshot(
     beliefs: List[Belief],
-    ranked_stack: List[Belief],
+    ranked_stack: List[Belief],  # reserved for future ranking stats
     context: str,
     iteration: int,
     agent_actions: list[dict] | None = None,
+    event_log: EventLog | None = None,
     snapshot_store=None,
 ) -> Snapshot:
     """
@@ -22,19 +24,19 @@ async def log_snapshot(
 
     Returns the created snapshot for immediate use or inspection.
     """
-    # compute global tension
     if beliefs:
         global_tension = sum(b.tension for b in beliefs) / len(beliefs)
     else:
         global_tension = 0.0
 
-    # simple cluster metrics - count beliefs per cluster
-    cluster_metrics: dict[str, int] = {}
+    # count beliefs per cluster
+    cluster_metrics: dict[str, dict] = {}
     for b in beliefs:
         if b.cluster_id:
-            cluster_metrics[b.cluster_id] = cluster_metrics.get(b.cluster_id, 0) + 1
+            cid = str(b.cluster_id)
+            cluster_metrics[cid] = cluster_metrics.get(cid, {"count": 0})
+            cluster_metrics[cid]["count"] = cluster_metrics[cid].get("count", 0) + 1
 
-    # convert beliefs to frozen snapshots
     belief_snapshots = [
         BeliefSnapshot(
             id=b.id,
@@ -53,7 +55,11 @@ async def log_snapshot(
         for b in beliefs
     ]
 
-    # build snapshot
+    # grab events from this iteration only
+    iteration_events = []
+    if event_log:
+        iteration_events = [e for e in event_log if e.iteration == iteration]
+
     snapshot = Snapshot(
         metadata=SnapshotMetadata(
             iteration=iteration,
@@ -63,6 +69,7 @@ async def log_snapshot(
         global_tension=global_tension,
         cluster_metrics=cluster_metrics,
         agent_actions=agent_actions or [],
+        events=iteration_events,
         rl_state_action=None,  # TODO: RL integration
     )
 
