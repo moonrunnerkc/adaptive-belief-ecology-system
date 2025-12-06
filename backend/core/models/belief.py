@@ -3,11 +3,16 @@ Pydantic models for belief storage in the Belief Ecology engine.
 """
 
 from datetime import datetime, timezone
-from enum import StrEnum
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# Python 3.10 compat - StrEnum added in 3.11
+class StrEnum(str, Enum):
+    pass
 
 
 def utcnow() -> datetime:
