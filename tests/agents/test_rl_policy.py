@@ -42,7 +42,7 @@ class TestEcologyState:
         state = EcologyState.from_beliefs(beliefs)
 
         assert state.total_beliefs == 2
-        assert state.confidence_mean == 0.7
+        assert abs(state.confidence_mean - 0.7) < 0.001
         assert state.confidence_min == 0.6
         assert state.confidence_max == 0.8
         assert abs(state.tension_mean - 0.3) < 0.001
