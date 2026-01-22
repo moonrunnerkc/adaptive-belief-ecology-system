@@ -15,7 +15,7 @@ Most LLM memory systems use key-value stores or vector retrieval. ABES implement
 - 38 passing tests with full type safety
 - Production-grade error handling and deterministic caching
 
-> **Phase 1 core systems are functional.**
+> **Core systems are functional.**
 > Working on storage layer, remaining agents, and RL integration.
 
 ## What I'm building
