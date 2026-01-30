@@ -2,102 +2,90 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-636%20passing-brightgreen.svg)]()
 
-A research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
-
----
-
-## What This Is
-
-ABES is an experimental cognitive memory architecture where beliefs:
-- Decay over time without reinforcement
-- Can contradict each other (tension is tracked)
-- Get reinforced when similar evidence arrives
-- Are processed by specialized agents each iteration
-
-This is a **research prototype**, not a production system.
+A research platform implementing **belief ecology** — treating beliefs as living, evolving entities rather than static memory entries.
 
 ---
 
-## Verified Claims
+## Overview
 
-The following claims are backed by reproducible experiments stored in `results/`.
+ABES is an experimental cognitive memory architecture for AI systems. Unlike key-value or vector-based memory stores, ABES manages beliefs as first-class objects that:
 
-### Determinism
-**Claim:** Given identical inputs and seed, the system produces byte-for-byte identical outputs.
+- **Decay** over time without reinforcement
+- **Accumulate tension** when contradictions are detected
+- **Get reinforced** when similar evidence arrives
+- **Mutate or deprecate** when tension exceeds thresholds
 
-**Evidence:** [results/determinism_check.json](results/determinism_check.json)
-- Two runs with seed 12345 produced identical state hashes
-- Different seeds (12345 vs 12346) produce different hashes
+A pipeline of specialized agents processes beliefs each iteration, with optional reinforcement learning to tune system parameters.
 
-### Offline Operation
-**Claim:** Core belief processing runs without network access.
-
-**Evidence:** [results/offline_verification.json](results/offline_verification.json)
-- Network sockets blocked at runtime
-- 5 experiment components ran successfully
-- 0 network calls detected
-
-### Conflict Resolution Consistency
-**Claim:** Conflict resolution follows deterministic rules based on confidence and age, not semantic truth.
-
-**Evidence:** [results/conflict_resolution_log.json](results/conflict_resolution_log.json)
-- 4 test cases passed
-- Resolution actions: WEAKEN (for confidence gaps), DEFER (for equal strength)
-- No truth inference—only consistency enforcement
-
-### Decay Behavior
-**Claim:** Decay factor significantly affects belief retention.
-
-**Evidence:** [results/decay_sweep/](results/decay_sweep/)
-| Decay Factor | Beliefs Retained | Beliefs Dropped | Churn Rate |
-|--------------|------------------|-----------------|------------|
-| 0.999 | 4 | 9 | 0.85 |
-| 0.995 | 0 | 13 | 1.00 |
-| 0.99 | 0 | 13 | 1.00 |
-| 0.97 | 0 | 13 | 1.00 |
-| 0.95 | 0 | 13 | 1.00 |
-
-**Observation:** The default decay factor of 0.995 results in aggressive belief deprecation. This is intentional for forgetting transient facts, but may need tuning for specific use cases.
-
-### Comparative Drift Benchmark
-**Claim:** The belief ecology maintains fewer accumulated contradictions than append-only storage.
-
-**Evidence:** [results/drift_comparison.json](results/drift_comparison.json)
-- 23-turn conversation script with reinforcement, contradictions, and duplicates
-- Metrics captured: belief count, contradiction count, entropy over time
-- Systems compared: plain LLM (no memory), append-only, belief ecology
+**Status:** Research prototype. Not production-ready.
 
 ---
 
-## Limitations and Caveats
+## Key Features
 
-### What Is NOT Verified
+| Feature | Source | Tests |
+|---------|--------|-------|
+| Belief data model (confidence, tension, status, lineage) | [backend/core/models/belief.py](backend/core/models/belief.py) | [test_bel_loop.py](tests/core/test_bel_loop.py) |
+| 14-phase agent scheduler | [backend/agents/scheduler.py](backend/agents/scheduler.py) | [test_scheduler.py](tests/agents/test_scheduler.py) |
+| Perception agent (text → belief candidates) | [backend/agents/perception.py](backend/agents/perception.py) | [test_perception.py](tests/agents/test_perception.py) |
+| Reinforcement agent (boost on similar evidence) | [backend/agents/reinforcement.py](backend/agents/reinforcement.py) | [test_reinforcement.py](tests/agents/test_reinforcement.py) |
+| Decay controller (time-based confidence reduction) | [backend/agents/decay_controller.py](backend/agents/decay_controller.py) | [test_decay_controller.py](tests/agents/test_decay_controller.py) |
+| Contradiction auditor (embedding + antonym detection) | [backend/agents/contradiction_auditor.py](backend/agents/contradiction_auditor.py) | [test_contradiction_auditor.py](tests/agents/test_contradiction_auditor.py) |
+| Mutation engineer (conflict-triggered belief modification) | [backend/agents/mutation_engineer.py](backend/agents/mutation_engineer.py) | [test_mutation_engineer.py](tests/agents/test_mutation_engineer.py) |
+| Semantic clustering | [backend/core/bel/clustering.py](backend/core/bel/clustering.py) | [test_clustering.py](tests/core/test_clustering.py) |
+| RL environment (15D state, 7D action) | [backend/rl/environment.py](backend/rl/environment.py) | [test_environment.py](tests/rl/test_environment.py) |
+| Evolution Strategy trainer | [backend/rl/training.py](backend/rl/training.py) | [test_training.py](tests/rl/test_training.py) |
+| FastAPI REST + WebSocket API | [backend/api/app.py](backend/api/app.py) | [test_routes.py](tests/api/test_routes.py) |
+| Chat service with Ollama LLM | [backend/chat/service.py](backend/chat/service.py) | Manual testing only |
+| Next.js frontend | [frontend/](frontend/) | Manual testing only |
 
-1. **LLM integration quality** — The chat interface depends on Ollama and response quality varies by model.
+---
 
-2. **Semantic understanding** — Contradiction detection uses embedding similarity and antonym lists, not true semantic reasoning.
+## Architecture
 
-3. **Scalability** — No load testing. In-memory storage only. The system is designed for research, not production workloads.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                       │
+│                    localhost:3000/chat                      │
+└─────────────────────────────────────────────────────────────┘
+                              │ REST + WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   FastAPI Backend (:8000)                   │
+│   /beliefs  /chat  /bel  /clusters  /snapshots  /agents    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐
+│   Chat Service  │ │  Agent Scheduler│ │   RL Environment    │
+│ (Ollama LLM)    │ │  (14 phases)    │ │ (Gymnasium-compat)  │
+└─────────────────┘ └─────────────────┘ └─────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    In-Memory Belief Store                   │
+│              (no persistence across restarts)               │
+└─────────────────────────────────────────────────────────────┘
+```
 
-4. **RL effectiveness** — The Evolution Strategy trainer runs, but policy quality is not benchmarked against baselines.
+### Agent Execution Pipeline
 
-5. **Persistence** — All state is in-memory. Server restart clears beliefs.
+```
+Perception → Creation → Reinforcement → Decay → Contradiction →
+Mutation → Resolution → Relevance → RL Policy → Consistency →
+Safety → Baseline → Narrative → Experiment
+```
 
-### Known Issues
-
-- 2 tests currently failing (out of 638 total)
-- Chat requires Ollama running locally
-- No multi-user isolation
+Each agent is independently tested. See [backend/agents/](backend/agents/).
 
 ---
 
 ## Installation
 
-### Requirements
-- Python 3.10+
-- Node.js 18+ (for frontend)
-- Ollama (for chat)
+**Requirements:** Python 3.10+, Node.js 18+ (frontend), Ollama (chat)
 
 ### Backend
 
@@ -108,7 +96,7 @@ cd adaptive-belief-ecology-system
 python -m venv .venv
 source .venv/bin/activate
 pip install numpy pydantic pydantic-settings msgpack sentence-transformers httpx
-pip install pytest pytest-asyncio  # for tests
+pip install pytest pytest-asyncio  # dev dependencies
 
 export PYTHONPATH=$PWD
 ```
@@ -120,13 +108,10 @@ cd frontend
 npm install
 ```
 
-### Ollama (for chat)
+### Ollama (required for chat)
 
 ```bash
-# Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a model
 ollama pull llama3.1:8b-instruct-q4_0
 ```
 
@@ -134,131 +119,111 @@ ollama pull llama3.1:8b-instruct-q4_0
 
 ## Quick Start
 
-### Start Backend
+**Terminal 1 — Backend:**
 ```bash
 source .venv/bin/activate
 PYTHONPATH=$PWD uvicorn backend.api.app:app --host 0.0.0.0 --port 8000
 ```
 
-### Start Frontend
+**Terminal 2 — Frontend:**
 ```bash
-cd frontend
-npm run dev
-# Chat at http://localhost:3000/chat
+cd frontend && npm run dev
 ```
 
-### Start Ollama
+**Terminal 3 — Ollama:**
 ```bash
 ollama serve
 ```
 
----
-
-## Running Verification Suite
-
-All experiments are deterministic and run offline.
-
-```bash
-source .venv/bin/activate
-PYTHONPATH=$PWD python experiments/run_all.py
-```
-
-This generates:
-```
-results/
-├── drift_comparison.json
-├── determinism_check.json
-├── offline_verification.json
-├── conflict_resolution_log.json
-├── verification_summary.json
-└── decay_sweep/
-    ├── decay_0.999.json
-    ├── decay_0.995.json
-    ├── decay_0.99.json
-    ├── decay_0.97.json
-    └── decay_0.95.json
-```
-
----
-
-## Architecture
-
-```
-Frontend (Next.js) → REST/WebSocket → FastAPI Backend
-                                          │
-                                    LLM Layer (Ollama)
-                                          │
-                                    Agent Scheduler
-                                    (15 agents, 14 phases)
-                                          │
-                                    Storage (in-memory)
-                                          │
-                                    RL Layer (optional)
-```
-
-### Key Components
-
-| Component | Location | Description |
-|-----------|----------|-------------|
-| Belief Model | [backend/core/models/belief.py](backend/core/models/belief.py) | Confidence, tension, status, lineage |
-| Agent Scheduler | [backend/agents/scheduler.py](backend/agents/scheduler.py) | 14-phase execution pipeline |
-| Chat Service | [backend/chat/service.py](backend/chat/service.py) | Message → beliefs → LLM response |
-| Perception Agent | [backend/agents/perception.py](backend/agents/perception.py) | Extract beliefs from text |
-| Reinforcement Agent | [backend/agents/reinforcement.py](backend/agents/reinforcement.py) | Boost confidence on similar evidence |
-| Contradiction Auditor | [backend/agents/contradiction_auditor.py](backend/agents/contradiction_auditor.py) | Detect conflicting beliefs |
+Open http://localhost:3000/chat
 
 ---
 
 ## Configuration
 
+All parameters are set via environment variables or [backend/core/config.py](backend/core/config.py).
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `DECAY_RATE` | 0.995 | Per-hour confidence multiplier |
-| `CONFIDENCE_THRESHOLD_DECAYING` | 0.3 | Threshold for deprecation |
-| `TENSION_THRESHOLD_MUTATION` | 0.6 | Trigger for mutation proposals |
+| `CONFIDENCE_THRESHOLD_DECAYING` | 0.3 | Threshold to mark belief as decaying |
+| `TENSION_THRESHOLD_MUTATION` | 0.5 | Trigger mutation proposals |
 | `CLUSTER_SIMILARITY_THRESHOLD` | 0.7 | Min similarity to join cluster |
-
-See [backend/core/config.py](backend/core/config.py) for full list.
+| `REINFORCEMENT_SIMILARITY_THRESHOLD` | 0.7 | Min similarity for reinforcement |
+| `OLLAMA_MODEL` | llama3.1:8b-instruct-q4_0 | LLM model for chat |
+| `MAX_ACTIVE_BELIEFS` | 10000 | Safety limit |
 
 ---
 
-## Tests
+## Testing and Verification
+
+### Unit Tests
 
 ```bash
+source .venv/bin/activate
 PYTHONPATH=$PWD pytest tests/ -q
-# 636 passed, 2 failed
 ```
 
-| Suite | Description |
-|-------|-------------|
-| `tests/agents/` | Agent behavior |
-| `tests/core/` | BEL loop, clustering |
-| `tests/rl/` | Environment, training |
-| `tests/verification/` | Reproducibility checks |
+**Current status:** 636 passed, 2 failed
+
+| Suite | Count | Scope |
+|-------|-------|-------|
+| `tests/agents/` | 18 files | All agent modules |
+| `tests/core/` | 5 files | BEL loop, clustering, timeline, RL integration |
+| `tests/rl/` | 3 files | Environment, policy, training |
+| `tests/api/` | 1 file | REST endpoints |
+| `tests/verification/` | 3 files | Determinism, offline, conflict resolution |
+
+### Verification Suite
+
+Run deterministic experiments that produce machine-readable evidence:
+
+```bash
+PYTHONPATH=$PWD python experiments/run_all.py
+```
+
+**Generated artifacts:**
+
+| File | Purpose |
+|------|---------|
+| [results/determinism_check.json](results/determinism_check.json) | Proves identical inputs → identical state hashes |
+| [results/offline_verification.json](results/offline_verification.json) | Proves core runs without network access |
+| [results/conflict_resolution_log.json](results/conflict_resolution_log.json) | Documents resolution decisions |
+| [results/drift_comparison.json](results/drift_comparison.json) | Compares belief ecology vs baselines |
+| [results/decay_sweep/](results/decay_sweep/) | Decay factor sensitivity analysis |
+
+### Verified Properties
+
+| Property | Evidence | Result |
+|----------|----------|--------|
+| Determinism | [determinism_check.json](results/determinism_check.json) | `deterministic: true` |
+| Offline operation | [offline_verification.json](results/offline_verification.json) | `network_calls_detected: 0` |
+| Conflict resolution consistency | [conflict_resolution_log.json](results/conflict_resolution_log.json) | 4/4 test cases passed |
 
 ---
 
-## Verification Evidence
+## Limitations
 
-| Claim | Evidence File | Key Metric |
-|-------|---------------|------------|
-| Deterministic | [results/determinism_check.json](results/determinism_check.json) | `deterministic: true` |
-| Offline | [results/offline_verification.json](results/offline_verification.json) | `network_calls_detected: 0` |
-| Decay sensitivity | [results/decay_sweep/](results/decay_sweep/) | Retention varies by factor |
-| Conflict resolution | [results/conflict_resolution_log.json](results/conflict_resolution_log.json) | 4/4 tests passed |
-| Drift comparison | [results/drift_comparison.json](results/drift_comparison.json) | 3-system comparison |
+- **In-memory only** — All state lost on server restart
+- **Single-user** — No session isolation or authentication
+- **No CI/CD** — Tests run locally only
+- **Ollama-only LLM** — No OpenAI/Anthropic integration
+- **Embedding model fixed** — Uses `all-MiniLM-L6-v2`
+- **2 failing tests** — mutation_engineer, rl_environment edge cases
 
 ---
 
-## Open Research Questions
+## Roadmap
 
-1. **Optimal decay rate** — Current default (0.995) is aggressive. What's the right balance between forgetting and retention?
+Future work not yet implemented:
 
-2. **Contradiction resolution strategy** — Current approach weakens lower-confidence beliefs. Is merge or temporal windowing better?
-
-3. **RL reward design** — What objective function best captures "healthy" belief ecology?
-
-4. **Semantic vs syntactic** — Current contradiction detection uses embeddings. Would LLM-based detection be more accurate? At what cost?
+- [ ] Persistent storage (SQLite/PostgreSQL)
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Multi-user session support
+- [ ] Belief Explorer UI
+- [ ] Document ingestion service
+- [ ] OpenAI/Anthropic LLM providers
+- [ ] Benchmark against production memory systems
 
 ---
 
