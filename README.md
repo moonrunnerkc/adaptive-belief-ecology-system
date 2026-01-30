@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-411%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-427%20passing-brightgreen.svg)]()
 
 A research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
 
@@ -44,6 +44,7 @@ ABES is a **backend-only Python library** (no API, no UI) implementing:
 |-----------|--------|-------|
 | 15 Specialized Agents | ✅ Implemented | 361 tests |
 | Agent Scheduler | ✅ Implemented | 20 tests |
+| Belief Clustering | ✅ Implemented | 16 tests |
 | RL Environment | ✅ Implemented | 20 tests |
 | RL Training (ES) | ✅ Implemented | 10 tests |
 | Belief/Snapshot Models | ✅ Implemented | — |
@@ -53,7 +54,7 @@ ABES is a **backend-only Python library** (no API, no UI) implementing:
 | Frontend | ❌ Not started | — |
 | Benchmarks | ❌ Not started | — |
 
-**411 tests passing** — all agent and RL tests. The `BeliefEcologyLoop` class itself has no direct tests.
+**427 tests passing** — all agent, clustering, and RL tests.
 
 ---
 

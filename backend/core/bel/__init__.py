@@ -2,6 +2,7 @@
 Belief Ecology Loop (BEL) implementation.
 """
 
+from .clustering import BeliefClusterManager, Cluster, ClusteringConfig
 from .contradiction import compute_tensions
 from .decay import apply_decay
 from .loop import BeliefEcologyLoop
@@ -12,6 +13,9 @@ from .snapshot_logger import log_snapshot
 
 __all__ = [
     "BeliefEcologyLoop",
+    "BeliefClusterManager",
+    "Cluster",
+    "ClusteringConfig",
     "apply_decay",
     "compute_tensions",
     "compute_relevance_scores",
