@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-466%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-499%20passing-brightgreen.svg)]()
 
 A research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
 
@@ -52,10 +52,10 @@ ABES is a Python research platform implementing:
 | Belief/Snapshot Models | ✅ Implemented | — |
 | Snapshot Edges | ✅ Implemented | — |
 | Core BEL Loop | ⚠️ Code exists | **Untested** |
+| Benchmark System | ✅ Implemented | 33 tests |
 | Frontend | ❌ Not started | — |
-| Benchmarks | ❌ Not started | — |
 
-**466 tests passing** — agents, clustering, API, safety, and RL.
+**499 tests passing** — agents, clustering, API, safety, RL, and benchmarks.
 
 ---
 
