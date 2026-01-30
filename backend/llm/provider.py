@@ -61,20 +61,20 @@ class OllamaProvider:
 
     SYSTEM_PROMPT_TEMPLATE = """You are an AI assistant powered by ABES (Adaptive Belief Ecology System).
 
-Your responses are informed by a living memory of beliefs that evolve over time. These beliefs:
-- Have confidence levels (how certain they are)
-- Have tension levels (contradiction pressure from conflicting beliefs)
-- Can mutate, reinforce, or deprecate based on new information
+You have a living memory of facts learned about the USER from your conversations. These are things the USER told you about themselves, their preferences, their life, etc.
 
-Current belief context:
+IMPORTANT: These are facts ABOUT THE USER, not about you. When the user said "My name is X" or "I have a dog", they were talking about themselves.
+
+What you know about the user:
 {belief_context}
 
 Guidelines:
-1. Use the provided beliefs to inform your responses
-2. If beliefs conflict, acknowledge the tension naturally
-3. When you learn new information, it will be extracted as new beliefs
-4. Be conversational and helpful
-5. If asked about your beliefs or memory, explain what you know and your confidence level"""
+1. Use these facts to give personalized, contextual responses
+2. Refer to the user's information correctly (e.g., "You mentioned your dog Reaper..." not "My dog Reaper...")
+3. If facts conflict, acknowledge what you've heard and ask for clarification
+4. When the user shares new information, acknowledge it naturally
+5. If asked what you know about the user, summarize accurately from the beliefs above
+6. Confidence % indicates how certain the information is; tension indicates potential contradictions"""
 
     def __init__(
         self,
@@ -100,7 +100,7 @@ Guidelines:
     def _format_belief_context(self, beliefs: list[Belief], max_beliefs: int = 15) -> str:
         """Format beliefs into context string for system prompt."""
         if not beliefs:
-            return "No beliefs currently stored."
+            return "No information learned about the user yet."
 
         # Sort by relevance score if available, else by confidence
         sorted_beliefs = sorted(
@@ -112,8 +112,76 @@ Guidelines:
         lines = []
         for i, b in enumerate(sorted_beliefs, 1):
             conf_pct = int(b.confidence * 100)
-            tension_indicator = "⚡" if b.tension > 0.5 else ""
-            lines.append(f"{i}. [{conf_pct}% confidence{tension_indicator}] {b.content}")
+            tension_indicator = " ⚠️ may conflict with other info" if b.tension > 0.3 else ""
+            # Transform first-person to second-person for clarity
+            content = self._transform_to_user_perspective(b.content)
+            lines.append(f"- {content} ({conf_pct}% confident{tension_indicator})")
+
+        return "\n".join(lines)
+
+    def _transform_to_user_perspective(self, content: str) -> str:
+        """Transform first-person statements to user perspective.
+
+        'My name is Brad' -> 'User's name is Brad'
+        'I have two dogs' -> 'User has two dogs'
+        'I love coffee' -> 'User loves coffee'
+        """
+        import re
+
+        # First-person to user perspective transformations
+        transformations = [
+            (r"^My\s+", "User's "),
+            (r"^I am\s+", "User is "),
+            (r"^I'm\s+", "User is "),
+            (r"^I have\s+", "User has "),
+            (r"^I've\s+", "User has "),
+            (r"^I was\s+", "User was "),
+            (r"^I love\s+", "User loves "),
+            (r"^I like\s+", "User likes "),
+            (r"^I prefer\s+", "User prefers "),
+            (r"^I think\s+", "User thinks "),
+            (r"^I believe\s+", "User believes "),
+            (r"^I want\s+", "User wants "),
+            (r"^I need\s+", "User needs "),
+            (r"^I enjoy\s+", "User enjoys "),
+            (r"^I hate\s+", "User hates "),
+            (r"^I dislike\s+", "User dislikes "),
+            (r"^I work\s+", "User works "),
+            (r"^I live\s+", "User lives "),
+            # Generic "I verb" pattern - convert to "User verbs"
+            (r"^I\s+(\w+)\s+", self._verb_transform),
+        ]
+
+        result = content
+        for pattern, replacement in transformations:
+            if callable(replacement):
+                match = re.match(pattern, result, re.IGNORECASE)
+                if match:
+                    result = replacement(match, result)
+                    break
+            else:
+                new_result = re.sub(pattern, replacement, result, count=1, flags=re.IGNORECASE)
+                if new_result != result:
+                    result = new_result
+                    break
+
+        return result
+
+    def _verb_transform(self, match, full_text: str) -> str:
+        """Transform 'I verb' to 'User verbs'."""
+        import re
+        verb = match.group(1).lower()
+
+        # Add 's' for third person (simple heuristic)
+        if verb.endswith(('s', 'x', 'z', 'ch', 'sh')):
+            verb_3p = verb + 'es'
+        elif verb.endswith('y') and len(verb) > 1 and verb[-2] not in 'aeiou':
+            verb_3p = verb[:-1] + 'ies'
+        else:
+            verb_3p = verb + 's'
+
+        rest = full_text[match.end():]
+        return f"User {verb_3p} {rest}"
 
         return "\n".join(lines)
 

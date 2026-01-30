@@ -181,6 +181,11 @@ _LOG_PREFIXES = [
 _PROTECT_URL = re.compile(r"https?://\S+|www\.\S+")
 _PROTECT_FILENAME = re.compile(r"\w+\.(?:py|js|json|yaml|log|txt|md|cfg)\b")
 _PROTECT_VERSION = re.compile(r"\b\d+\.\d+(?:\.\d+)*\b|\b[a-zA-Z]+\d+\.\d+\b")
+# Protect name abbreviations and titles: Mr., Mrs., Dr., Jr., Sr., single initials like "R."
+_PROTECT_ABBREVIATIONS = re.compile(
+    r"\b(?:Mr|Mrs|Ms|Dr|Jr|Sr|Prof|Rev|Gen|Col|Lt|Sgt|Capt|Hon)\.|"  # Titles
+    r"\b[A-Z]\."  # Single letter initials (R., J., etc.)
+)
 
 
 class PerceptionAgent:
@@ -405,6 +410,7 @@ class PerceptionAgent:
         text = _PROTECT_URL.sub(_protect, text)
         text = _PROTECT_FILENAME.sub(_protect, text)
         text = _PROTECT_VERSION.sub(_protect, text)
+        text = _PROTECT_ABBREVIATIONS.sub(_protect, text)  # protect Mr., R., etc.
         text = re.sub(r"\.{3}", _protect, text)  # protect ellipses before collapse
 
         text = re.sub(r"([.!?])\1+", r"\1", text)  # collapse repeated punct
