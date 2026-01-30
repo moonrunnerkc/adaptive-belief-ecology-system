@@ -2,6 +2,47 @@
 
 All notable changes to ABES are documented here.
 
+## [0.3.0] - 2026-01-30
+
+### Added
+
+**Chat Interface with LLM Integration**
+- `ChatService` orchestrating belief pipeline for conversational AI
+- `OllamaProvider` for local LLM integration (llama3.1 8B)
+- WebSocket support for real-time belief event streaming
+- Chat API endpoints: `/chat/message`, `/chat/sessions`, `/chat/ws`
+- Session management with history persistence
+
+**Dashboard Hub**
+- Central dashboard at `/` with service navigation cards
+- Service cards: Chat (active), Documents (coming soon), Explorer (coming soon), Integrations (coming soon)
+- System status indicator and quick actions
+- Stats overview panel
+
+**Modern Frontend UI**
+- Clean dark theme (black/grey, Grok-style)
+- 3-panel chat layout: sidebar, chat area, belief activity panel
+- Real-time belief activity display (created, reinforced, evolved, tensions)
+- Responsive design with minimal semantic colors
+
+**Perception Agent Enhancements**
+- `_has_chat_substance()` for conversational content extraction
+- Support for personal facts, opinions, named entities
+- Protection for name abbreviations (R., Mr., Dr., etc.)
+- Fixed sentence splitting for names like "Bradley R. Kinnard"
+
+**LLM Context Improvements**
+- Belief-to-user-perspective transformation
+- "My name is Brad" → "User's name is Brad" in LLM context
+- Improved system prompt clarifying facts are ABOUT the user
+- Prevents LLM from confusing itself with user
+
+### Changed
+- Updated architecture diagram to include Frontend, API, and LLM layers
+- Expanded module map with new chat/, llm/, and frontend/ directories
+
+---
+
 ## [0.2.0] - 2026-01-30
 
 ### Added

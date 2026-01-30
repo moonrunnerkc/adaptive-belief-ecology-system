@@ -11,6 +11,31 @@ Most LLM memory systems use key-value stores or vector retrieval. ABES implement
 
 ---
 
+## 🚀 What's New
+
+### Chat Interface with Ollama LLM
+ABES now includes a fully functional **chatbot** powered by a local LLM (Ollama). The chat system:
+- Extracts beliefs from your messages in real-time
+- Uses your stored beliefs to provide personalized, contextual responses
+- Shows live belief activity (created, reinforced, evolved, tensions)
+- Streams events via WebSocket for real-time UI updates
+
+### Dashboard Hub
+A central dashboard at `/` provides access to all ABES services:
+- **Chat** — Conversational AI with evolving memory (active)
+- **Documents** — Upload and analyze documents (coming soon)
+- **Belief Explorer** — Browse and manage the belief ecology (coming soon)
+- **Integrations** — External data sources via webhooks/APIs (coming soon)
+
+### Modern UI
+Clean, professional dark theme inspired by Grok:
+- Black/grey color scheme with minimal semantic colors
+- 3-panel chat layout: sidebar, chat area, belief activity panel
+- Real-time belief event streaming
+- Responsive and accessible design
+
+---
+
 ## Overview
 
 ABES is a Python research platform implementing a dynamic cognitive memory architecture. Beliefs are first-class objects with confidence scores, tension values (contradiction pressure), status lifecycle, and mutation lineage. A pipeline of 15 specialized agents processes beliefs each iteration: extracting claims from input, deduplicating, reinforcing similar evidence, applying decay, detecting contradictions, proposing mutations, resolving conflicts, and ranking by relevance.
@@ -21,22 +46,20 @@ An RL layer wraps this ecology as a Gymnasium-compatible environment, enabling p
 
 ## Key Features
 
-| Feature | Source | Tests |
-|---------|--------|-------|
-| 15 Specialized Agents | [backend/agents/](backend/agents/) | 394 |
-| Agent Scheduler (14 phases) | [backend/agents/scheduler.py](backend/agents/scheduler.py) | 20 |
-| Belief Ecology Loop | [backend/core/bel/loop.py](backend/core/bel/loop.py) | 40 |
-| RL-BEL Integration | [backend/core/bel/rl_integration.py](backend/core/bel/rl_integration.py) | 24 |
-| Snapshot Timeline | [backend/core/bel/timeline.py](backend/core/bel/timeline.py) | 10 |
-| RL Environment (15-dim state, 7-dim action) | [backend/rl/environment.py](backend/rl/environment.py) | 20 |
-| RL Policy (NumPy MLP) | [backend/rl/policy.py](backend/rl/policy.py) | 15 |
-| RL Training (Evolution Strategy) | [backend/rl/training.py](backend/rl/training.py) | 15 |
-| Semantic Clustering | [backend/core/bel/clustering.py](backend/core/bel/clustering.py) | 16 |
-| REST API (FastAPI) | [backend/api/](backend/api/) | 21 |
-| Benchmark Scenarios | [backend/benchmark/scenarios.py](backend/benchmark/scenarios.py) | 17 |
-| Baseline Memory Systems | [backend/benchmark/baselines.py](backend/benchmark/baselines.py) | 16 |
-| Metrics Export (JSON/CSV/Prometheus) | [backend/metrics/](backend/metrics/) | 20 |
-| Snapshot Queries | [backend/storage/snapshot_queries.py](backend/storage/snapshot_queries.py) | 24 |
+| Feature | Source | Description |
+|---------|--------|-------------|
+| **Chat Interface** | [backend/chat/](backend/chat/) | Conversational AI with belief memory |
+| **LLM Integration** | [backend/llm/](backend/llm/) | Ollama provider with belief context |
+| **Dashboard UI** | [frontend/](frontend/) | Next.js dashboard with service hub |
+| **15 Specialized Agents** | [backend/agents/](backend/agents/) | Perception, creation, reinforcement, decay, etc. |
+| **Agent Scheduler** | [backend/agents/scheduler.py](backend/agents/scheduler.py) | 14-phase execution pipeline |
+| **Belief Ecology Loop** | [backend/core/bel/loop.py](backend/core/bel/loop.py) | Core iteration engine |
+| **RL Environment** | [backend/rl/environment.py](backend/rl/environment.py) | Gymnasium-compatible (15d state, 7d action) |
+| **RL Training** | [backend/rl/training.py](backend/rl/training.py) | Evolution Strategy optimization |
+| **Semantic Clustering** | [backend/core/bel/clustering.py](backend/core/bel/clustering.py) | Belief grouping by similarity |
+| **REST API** | [backend/api/](backend/api/) | FastAPI with WebSocket support |
+| **Benchmark Scenarios** | [backend/benchmark/](backend/benchmark/) | Scenario generation and baselines |
+| **Metrics Export** | [backend/metrics/](backend/metrics/) | JSON, CSV, Prometheus formats |
 
 **Total: 632 tests passing.**
 
@@ -46,34 +69,60 @@ An RL layer wraps this ecology as a Gymnasium-compatible environment, enabling p
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                      Frontend (Next.js)                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │Dashboard │ │   Chat   │ │ Explorer │ │  Docs    │  ...  │
+│  │   Hub    │ │Interface │ │ (soon)   │ │ (soon)   │       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+└─────────────────────────────────────────────────────────────┘
+                              │ REST + WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     FastAPI Backend                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                    │
+│  │ Chat API │ │Belief API│ │ Stats API│                    │
+│  └──────────┘ └──────────┘ └──────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    LLM Layer (Ollama)                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Chat completion with belief context injection        │  │
+│  │ Transforms beliefs to user-perspective for clarity   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
 │                     Agent Scheduler                         │
 │  (14 phases: Perception → Creation → ... → Experiment)      │
 └─────────────────────────────────────────────────────────────┘
-							  │
-							  ▼
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    15 Specialized Agents                    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
-│  │Perception│ │ Creator  │ │ Auditor  │ │ Mutation │  ...   │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘        │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │Perception│ │ Creator  │ │ Auditor  │ │ Mutation │  ...  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
 └─────────────────────────────────────────────────────────────┘
-							  │
-							  ▼
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     Storage Layer                           │
-│  ┌──────────────────┐    ┌───────────────────┐              │
-│  │  Belief Store    │    │  Snapshot Store   │              │
-│  │  (in-memory)     │    │  (compressed)     │              │
-│  └──────────────────┘    └───────────────────┘              │
+│  ┌──────────────────┐    ┌───────────────────┐             │
+│  │  Belief Store    │    │  Snapshot Store   │             │
+│  │  (in-memory)     │    │  (compressed)     │             │
+│  └──────────────────┘    └───────────────────┘             │
 └─────────────────────────────────────────────────────────────┘
-							  │
-							  ▼
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      RL Layer                               │
-│  ┌───────────┐    ┌──────────┐    ┌──────────┐              │
-│  │Environment│ ←→ │  Policy  │ ←→ │ Trainer  │              │
-│  │(15d/7d)   │    │(NumPy MLP│    │   (ES)   │              │
-│  └───────────┘    └──────────┘    └──────────┘              │
+│  ┌───────────┐    ┌──────────┐    ┌──────────┐             │
+│  │Environment│ ←→ │  Policy  │ ←→ │ Trainer  │             │
+│  │(15d/7d)   │    │(NumPy MLP│    │   (ES)   │             │
+│  └───────────┘    └──────────┘    └──────────┘             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,27 +135,78 @@ Key modules:
 
 ## Installation
 
+### Backend
+
 ```bash
-git clone https://github.com/moonrunnerkc/abes.git
-cd abes
+git clone https://github.com/moonrunnerkc/adaptive-belief-ecology-system.git
+cd adaptive-belief-ecology-system
 
 python -m venv .venv
 source .venv/bin/activate
-pip install numpy pydantic pydantic-settings msgpack sentence-transformers
+pip install numpy pydantic pydantic-settings msgpack sentence-transformers httpx
 pip install pytest pytest-asyncio  # for tests
 ```
 
-**Note:** Editable install (`pip install -e .`) currently fails due to missing package discovery config. Use `PYTHONPATH` as a workaround:
+### Frontend
+
+```bash
+cd frontend
+npm install
+```
+
+### LLM (Ollama)
+
+Install [Ollama](https://ollama.ai/) and pull a model:
+
+```bash
+# Install Ollama (Linux)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model (llama3.1 8B recommended)
+ollama pull llama3.1:8b-instruct-q4_0
+```
+
+**Note:** Set `PYTHONPATH` for running without editable install:
 
 ```bash
 export PYTHONPATH=$PWD
 ```
 
-Requires Python 3.10+. First embedding use downloads `all-MiniLM-L6-v2` (~80MB).
+Requires Python 3.10+, Node.js 18+.
 
 ---
 
 ## Quick Start
+
+### 1. Start the Backend API
+
+```bash
+source .venv/bin/activate
+PYTHONPATH=$PWD uvicorn backend.api.app:app --host 0.0.0.0 --port 8000
+# API docs at http://localhost:8000/docs
+```
+
+### 2. Start the Frontend
+
+```bash
+cd frontend
+npm run dev
+# Dashboard at http://localhost:3000
+# Chat at http://localhost:3000/chat
+```
+
+### 3. Start Ollama (if not running)
+
+```bash
+ollama serve
+```
+
+### Using the Chat
+
+1. Open http://localhost:3000/chat
+2. Send messages like "My name is Brad and I have a dog named Max"
+3. Watch beliefs appear in the Activity panel
+4. Ask "What do you know about me?" to see the system's memory
 
 ### Run Tests
 
@@ -127,13 +227,6 @@ metrics = trainer.train()
 
 print(f"Best return: {metrics.best_return:.3f}")
 trainer.save_policy("policy.npz")
-```
-
-### Start the API
-
-```bash
-PYTHONPATH=$PWD uvicorn backend.api.app:app --reload
-# Docs at http://localhost:8000/docs
 ```
 
 ---
@@ -186,14 +279,61 @@ collected 632 items
 
 ## Roadmap
 
-- [x] ~~Add tests for `BeliefEcologyLoop`~~ ✅ (40 tests added)
-- [x] ~~Add tests for snapshot timeline and queries~~ ✅ (34 tests added)
-- [x] ~~Add tests for RL-BEL integration~~ ✅ (24 tests added)
-- [ ] Fix editable install (`pyproject.toml` package discovery)
-- [ ] Add CI workflow (GitHub Actions)
-- [ ] Frontend tests
+### Completed ✅
+- [x] Core belief ecology with 15 specialized agents
+- [x] RL environment and Evolution Strategy training
+- [x] REST API with FastAPI
+- [x] **Chat interface with Ollama LLM integration**
+- [x] **Dashboard hub with service navigation**
+- [x] **Real-time belief activity panel via WebSocket**
+- [x] **Perception agent for conversational content**
+- [x] **User-perspective belief context for LLM**
+- [x] 632 tests passing
+
+### In Progress 🔄
+- [ ] Belief Explorer UI (browse, search, manage beliefs)
+- [ ] Document ingestion service
+- [ ] Belief reinforcement from repeated mentions
+
+### Planned 📋
 - [ ] Persistent storage backend (SQLite/PostgreSQL)
-- [ ] Experiment tracking integration (MLflow/W&B)
+- [ ] External integrations (webhooks, Kafka)
+- [ ] CI workflow (GitHub Actions)
+- [ ] Experiment tracking (MLflow/W&B)
+- [ ] Multi-user session support
+- [ ] Belief export/import
+
+---
+
+## API Endpoints
+
+### Chat API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/chat/message` | Send message, get response with beliefs |
+| GET | `/chat/sessions` | List chat sessions |
+| POST | `/chat/sessions` | Create new session |
+| GET | `/chat/sessions/{id}` | Get session with history |
+| WS | `/chat/ws` | WebSocket for real-time belief events |
+
+### Belief API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/beliefs` | List beliefs with pagination |
+| GET | `/beliefs/{id}` | Get specific belief |
+| POST | `/beliefs` | Create belief manually |
+| PATCH | `/beliefs/{id}` | Update belief |
+| POST | `/beliefs/{id}/reinforce` | Reinforce belief |
+
+### System API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/bel/stats` | System statistics |
+| GET | `/bel/health` | Health check |
+| POST | `/bel/iterate` | Run one ecology iteration |
 
 ---
 

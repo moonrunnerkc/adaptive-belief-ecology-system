@@ -2,12 +2,38 @@
 
 ## Overview
 
-ABES implements a **Belief Ecology** where beliefs are living entities that decay, conflict, mutate, and cluster. The system consists of:
+ABES implements a **Belief Ecology** where beliefs are living entities that decay, conflict, mutate, and cluster. The system consists of multiple layers:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                      Frontend (Next.js)                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │Dashboard │ │   Chat   │ │ Explorer │ │  Docs    │  ...  │
+│  │   Hub    │ │Interface │ │ (soon)   │ │ (soon)   │       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+└─────────────────────────────────────────────────────────────┘
+                              │ REST + WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     FastAPI Backend                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                    │
+│  │ Chat API │ │Belief API│ │ Stats API│                    │
+│  └──────────┘ └──────────┘ └──────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    LLM Layer (Ollama)                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Chat completion with belief context injection        │  │
+│  │ Transforms beliefs to user-perspective for clarity   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
 │                     Agent Scheduler                         │
-│  (14 phases: Perception → ... → Experiment)                │
+│  (14 phases: Perception → Creation → ... → Experiment)     │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -35,6 +61,50 @@ ABES implements a **Belief Ecology** where beliefs are living entities that deca
 │  │(15d/7d)   │    │(NumPy MLP│    │(ES)      │             │
 │  └───────────┘    └──────────┘    └──────────┘             │
 └─────────────────────────────────────────────────────────────┘
+```
+
+## Chat Service Flow
+
+The chat service orchestrates the belief pipeline for conversational AI:
+
+```
+User Message
+     │
+     ▼
+┌─────────────┐     ┌──────────────┐
+│ Perception  │ ──▶ │ Extract facts│
+│   Agent     │     │ from message │
+└─────────────┘     └──────────────┘
+     │
+     ▼
+┌─────────────┐     ┌──────────────┐
+│   Belief    │ ──▶ │ Create new   │
+│  Creator    │     │ beliefs      │
+└─────────────┘     └──────────────┘
+     │
+     ▼
+┌─────────────┐     ┌──────────────┐
+│Reinforcement│ ──▶ │ Boost similar│
+│   Agent     │     │ beliefs      │
+└─────────────┘     └──────────────┘
+     │
+     ▼
+┌─────────────┐     ┌──────────────┐
+│ Relevance   │ ──▶ │ Rank beliefs │
+│  Curator    │     │ for context  │
+└─────────────┘     └──────────────┘
+     │
+     ▼
+┌─────────────┐     ┌──────────────────────────────┐
+│    LLM      │ ──▶ │ Generate response with       │
+│  Provider   │     │ user's belief context        │
+└─────────────┘     └──────────────────────────────┘
+     │
+     ▼
+┌─────────────┐     ┌──────────────┐
+│  WebSocket  │ ──▶ │ Stream events│
+│  Broadcast  │     │ to frontend  │
+└─────────────┘     └──────────────┘
 ```
 
 ## Data Flow
@@ -152,47 +222,71 @@ Current implementation: in-memory dicts. Snapshots are compressed via msgpack + 
 ```
 backend/
 ├── agents/                 # 15 agents + scheduler
-│   ├── perception.py
-│   ├── belief_creator.py
-│   ├── reinforcement.py
-│   ├── contradiction_auditor.py
-│   ├── mutation_engineer.py
-│   ├── resolution_strategist.py
-│   ├── relevance_curator.py
-│   ├── decay_controller.py
-│   ├── baseline_memory_bridge.py
-│   ├── rl_policy.py
-│   ├── reward_shaper.py
-│   ├── experiment_orchestrator.py
-│   ├── consistency_checker.py
-│   ├── narrative_explainer.py
-│   ├── safety_sanity.py
-│   └── scheduler.py
+│   ├── perception.py       # Extract facts from chat/logs
+│   ├── belief_creator.py   # Create beliefs with deduplication
+│   ├── reinforcement.py    # Boost confidence on similarity
+│   ├── contradiction_auditor.py  # Detect conflicts
+│   ├── mutation_engineer.py      # Propose hedged variants
+│   ├── resolution_strategist.py  # Resolve high-confidence conflicts
+│   ├── relevance_curator.py      # Rank by relevance to context
+│   ├── decay_controller.py       # Time-based confidence decay
+│   ├── baseline_memory_bridge.py # RAG/chat interface
+│   ├── rl_policy.py              # RL control parameters
+│   ├── reward_shaper.py          # Reward computation
+│   ├── experiment_orchestrator.py # Experiment logging
+│   ├── consistency_checker.py    # Drift detection
+│   ├── narrative_explainer.py    # Natural language explanations
+│   ├── safety_sanity.py          # Safety limits
+│   └── scheduler.py              # 14-phase orchestrator
+├── api/
+│   ├── app.py              # FastAPI application
+│   ├── schemas.py          # Request/response models
+│   └── routes/
+│       ├── beliefs.py      # Belief CRUD endpoints
+│       ├── bel.py          # System stats/health
+│       └── chat.py         # Chat API + WebSocket
+├── chat/
+│   └── service.py          # Chat orchestration with agent pipeline
+├── llm/
+│   └── provider.py         # Ollama LLM integration
 ├── core/
 │   ├── config.py           # ABESSettings
-│   ├── deps.py             # dependency injection
-│   ├── events.py           # event models
+│   ├── deps.py             # Dependency injection
+│   ├── events.py           # Event models
 │   ├── models/
-│   │   ├── belief.py
-│   │   └── snapshot.py
+│   │   ├── belief.py       # Belief data model
+│   │   └── snapshot.py     # Snapshot with edges
 │   └── bel/
-│       ├── loop.py         # BeliefEcologyLoop (untested)
-│       ├── decay.py
-│       ├── contradiction.py
-│       ├── ranking.py
-│       ├── relevance.py
-│       ├── rl_integration.py
-│       ├── snapshot_compression.py
-│       ├── snapshot_logger.py
-│       └── timeline.py
+│       ├── loop.py         # BeliefEcologyLoop
+│       ├── clustering.py   # Semantic clustering
+│       ├── decay.py        # Decay logic
+│       ├── contradiction.py # Contradiction detection
+│       ├── ranking.py      # Belief ranking
+│       ├── rl_integration.py # RL-BEL bridge
+│       └── timeline.py     # Snapshot timeline
 ├── rl/
-│   ├── environment.py      # BeliefEcologyEnv
+│   ├── environment.py      # BeliefEcologyEnv (Gymnasium)
 │   ├── policy.py           # MLPPolicy, EvolutionStrategy
 │   └── training.py         # ESTrainer
 └── storage/
-    ├── base.py             # abstract interfaces
-    ├── in_memory.py        # dict-based implementations
-    └── snapshot_queries.py # query utilities
+    ├── base.py             # Abstract interfaces
+    ├── in_memory.py        # Dict-based implementations
+    └── snapshot_queries.py # Query utilities
+
+frontend/
+├── app/
+│   ├── page.tsx            # Dashboard hub
+│   ├── chat/page.tsx       # Chat interface
+│   ├── layout.tsx          # Root layout
+│   └── globals.css         # Dark theme styles
+├── components/
+│   ├── ChatInterface.tsx   # Main chat component
+│   ├── BeliefActivityPanel.tsx  # Real-time belief events
+│   ├── Sidebar.tsx         # Session management
+│   └── ...
+└── lib/
+    ├── api.ts              # API client
+    └── types.ts            # TypeScript types
 ```
 
 ## Embeddings
@@ -201,3 +295,64 @@ backend/
 - Library: sentence-transformers
 - Usage: deduplication, contradiction detection, relevance scoring
 - Cached per agent to avoid redundant encoding
+
+## LLM Integration
+
+ABES integrates with local LLMs via Ollama for chat completion:
+
+### Provider Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_MODEL` | `llama3.1:8b-instruct-q4_0` | Model to use |
+| `LLM_TIMEOUT` | `120.0` | Request timeout in seconds |
+
+### Belief Context Injection
+
+The LLM provider transforms first-person beliefs to user-perspective for clarity:
+
+| Original (stored) | Transformed (to LLM) |
+|-------------------|----------------------|
+| "My name is Brad" | "User's name is Brad" |
+| "I have two dogs" | "User has two dogs" |
+| "I love coffee" | "User loves coffee" |
+
+This prevents the LLM from confusing itself with the user.
+
+### System Prompt
+
+The system prompt explains that the LLM has learned facts about the user from previous conversations. It instructs the LLM to:
+
+1. Use stored facts to give personalized responses
+2. Refer to user's information correctly ("You mentioned..." not "My...")
+3. Acknowledge new information naturally
+4. Summarize accurately when asked about user's profile
+
+## WebSocket Events
+
+Real-time belief events are broadcast via WebSocket at `/chat/ws`:
+
+| Event Type | Description |
+|------------|-------------|
+| `created` | New belief extracted from user message |
+| `reinforced` | Existing belief strengthened by similar input |
+| `mutated` | Belief evolved due to tension |
+| `deprecated` | Belief decayed below threshold |
+| `tension_changed` | Contradiction detected |
+
+Event payload:
+```json
+{
+  "type": "belief_event",
+  "data": {
+    "event_type": "created",
+    "belief_id": "uuid",
+    "content": "User's name is Brad",
+    "confidence": 0.8,
+    "tension": 0.0,
+    "details": {"source": "user_message"},
+    "timestamp": "2026-01-30T12:00:00Z"
+  }
+}
+```
