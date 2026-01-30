@@ -306,6 +306,11 @@ class PerceptionAgent:
             r"\byou\s+already\s+know\b",
             r"\bwhat\s+caused\s+you\b",
             r"\bplease\s+(tell|show|explain|remember)\b",
+            r"\bprove\s+(your|it|this|that)\b",  # "prove your response" - directive
+            r"\b(show|tell|explain)\s+(me|us)\b",  # "show me", "tell me" - directives
+            r"\bwhat\s+do\s+you\s+know\b",  # questions, not facts
+            r"\bwho\s+am\s+i\b",  # questions
+            r"\bdo\s+you\s+(know|remember|recall)\b",  # questions
         ]
         for pat in meta_patterns:
             if re.search(pat, lower):
@@ -417,7 +422,11 @@ class PerceptionAgent:
         return out
 
     def _split_sentences(self, text: str) -> list[str]:
-        """Split on sentence boundaries, preserving technical tokens."""
+        """Split on sentence boundaries, preserving technical tokens.
+
+        For chat, also splits on commas separating independent clauses
+        (e.g., "my name is Brad, I like Python" -> 2 beliefs).
+        """
         protected: list[tuple[str, str]] = []
 
         def _protect(m: re.Match[str]) -> str:
@@ -445,7 +454,14 @@ class PerceptionAgent:
             # restore protected tokens
             for tok, orig in protected:
                 p = p.replace(tok, orig)
-            out.append(p)
+
+            # Split on comma + pronoun patterns (independent clauses)
+            # "my name is Brad, I like Python" -> ["my name is Brad", "I like Python"]
+            comma_parts = re.split(r",\s*(?=(?:i|he|she|they|we|it|my|his|her|their|our|you)\s)", p, flags=re.I)
+            for cp in comma_parts:
+                cp = cp.strip()
+                if cp:
+                    out.append(cp)
         return out
 
     def _strip_log_prefix(self, line: str) -> str:
