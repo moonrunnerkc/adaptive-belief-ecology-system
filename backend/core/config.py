@@ -81,6 +81,14 @@ class ABESSettings(BaseSettings):
     # --- Deduplication ---
     dedupe_similarity_threshold: float = 0.95
 
+    # --- LLM / Ollama Configuration ---
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:8b-instruct-q4_0"
+    ollama_timeout: float = 120.0
+    llm_temperature: float = 0.7
+    llm_max_tokens: int = 1024
+    llm_context_beliefs: int = 15  # max beliefs to include in LLM context
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

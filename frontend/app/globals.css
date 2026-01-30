@@ -3,49 +3,47 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 250, 250, 250;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 17, 24, 39;
-    --background-end-rgb: 31, 41, 55;
-  }
+  --foreground: #e5e5e5;
+  --background: #0a0a0a;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: var(--foreground);
+  background: var(--background);
   min-height: 100vh;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Belief node styles */
-.belief-node {
-  @apply rounded-lg border p-4 shadow-sm transition-all duration-200;
+/* Scrollbar - minimal dark style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.belief-node:hover {
-  @apply shadow-md;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.belief-node.active {
-  @apply border-belief-active bg-belief-active/5;
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
 }
 
-.belief-node.decaying {
-  @apply border-belief-decaying bg-belief-decaying/5;
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
 }
 
-.belief-node.deprecated {
-  @apply border-belief-deprecated bg-belief-deprecated/5;
+/* Selection */
+::selection {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Focus outlines - subtle */
+*:focus-visible {
+  outline: 1px solid #3a3a3a;
+  outline-offset: 2px;
 }
 
 .belief-node.mutated {

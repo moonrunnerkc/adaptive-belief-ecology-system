@@ -10,6 +10,7 @@ from .routes import (
     agents_router,
     bel_router,
     beliefs_router,
+    chat_router,
     clusters_router,
     snapshots_router,
 )
@@ -17,7 +18,7 @@ from .routes import (
 app = FastAPI(
     title="ABES API",
     description="Adaptive Belief Ecology System API",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -37,6 +38,7 @@ app.include_router(snapshots_router)
 app.include_router(agents_router)
 app.include_router(bel_router)
 app.include_router(clusters_router)
+app.include_router(chat_router)
 
 
 @app.get("/")

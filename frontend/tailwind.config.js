@@ -7,16 +7,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        belief: {
-          active: '#10B981',
-          decaying: '#F59E0B',
-          deprecated: '#6B7280',
-          mutated: '#8B5CF6',
+        // Clean monochrome base
+        surface: {
+          DEFAULT: '#0a0a0a',
+          raised: '#141414',
+          overlay: '#1a1a1a',
+          border: '#2a2a2a',
         },
-        tension: {
-          low: '#10B981',
-          medium: '#F59E0B',
-          high: '#EF4444',
+        // Subtle accent - warm grey with slight teal
+        accent: {
+          DEFAULT: '#3d9991',
+          muted: '#2a6b66',
+          subtle: '#1a4542',
+        },
+        // Semantic colors - muted, professional
+        status: {
+          success: '#4ade80',
+          warning: '#fbbf24',
+          error: '#f87171',
+          info: '#60a5fa',
         },
       },
     },
