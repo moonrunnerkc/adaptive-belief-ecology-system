@@ -37,6 +37,10 @@ class BeliefEcologyLoop:
         # lazy-load embedding model
         self._embedding_model = embedding_model
 
+        # edge storage for snapshots (spec 3.7)
+        self._contradiction_edges: list[tuple] = []
+        self._support_edges: list[tuple] = []
+
     @property
     def embedding_model(self) -> SentenceTransformer:
         """Lazy init for embedding model - only loads when needed."""
@@ -44,7 +48,9 @@ class BeliefEcologyLoop:
             self._embedding_model = SentenceTransformer(self.settings.embedding_model)
         return self._embedding_model
 
-    async def run_iteration(self, context: str) -> tuple[List[Belief], Snapshot]:
+    async def run_iteration(
+        self, context: str, rl_state_action: Optional[dict] = None
+    ) -> tuple[List[Belief], Snapshot]:
         """
         Run one full BEL iteration. Returns ranked beliefs and the snapshot.
 
@@ -77,8 +83,8 @@ class BeliefEcologyLoop:
         # step 6: rank beliefs
         ranked = self._rank_beliefs(beliefs)
 
-        # step 7: log snapshot
-        snapshot = await self._log_snapshot(beliefs, context, actions)
+        # step 7: log snapshot with RL info
+        snapshot = await self._log_snapshot(beliefs, context, actions, rl_state_action)
 
         return ranked, snapshot
 
@@ -120,17 +126,115 @@ class BeliefEcologyLoop:
     async def _compute_tensions(self, beliefs: List[Belief]) -> None:
         """
         Step 3: Compute contradiction scores between belief pairs.
-        Aggregate into per-belief tension values.
+        Aggregate into per-belief tension (spec 3.4.3, 3.4.4).
+        Also populates _edges for snapshot.
 
-        TODO: Full contradiction detection
-        - embed belief contents and find semantically similar pairs
-        - use LLM to score actual contradictions (not just similarity)
-        - aggregate scores into per-belief tension
-        - for large N, consider belief ID map or spatial index
+        Contradiction score = semantic_similarity × negation_signal
+        Tension per belief = max(contradiction_score) across all pairs
         """
-        # stub - zeros out tension until we wire up contradiction detection
+        # reset edge storage
+        self._contradiction_edges = []
+        self._support_edges = []
+
+        if len(beliefs) < 2:
+            for b in beliefs:
+                b.tension = 0.0
+            return
+
+        # embed all beliefs once
+        contents = [b.content for b in beliefs]
+        embeddings = self.embedding_model.encode(
+            contents, convert_to_numpy=True, normalize_embeddings=True
+        )
+
+        # initialize tension scores
+        tension_scores: dict = {b.id: 0.0 for b in beliefs}
+
+        n = len(beliefs)
+        similarity_threshold = self.settings.similarity_threshold_contradiction
+        support_threshold = 0.8  # spec 3.7.1: support = similarity >= 0.8, no negation
+
+        # O(n^2) pairwise - capped by max_contradiction_pairs_per_iteration
+        max_pairs = self.settings.max_contradiction_pairs_per_iteration
+        pair_count = 0
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                pair_count += 1
+                if pair_count > max_pairs:
+                    break
+
+                # cosine similarity (embeddings are normalized, so dot product suffices)
+                sim = float(np.dot(embeddings[i], embeddings[j]))
+
+                # skip dissimilar pairs (spec optimization)
+                if sim < similarity_threshold:
+                    continue
+
+                # negation detection
+                has_neg = self._has_negation(beliefs[i].content, beliefs[j].content)
+                negation_signal = 1.0 if has_neg else 0.3
+
+                contradiction_score = sim * negation_signal
+
+                # max aggregation per spec 3.4.4
+                tension_scores[beliefs[i].id] = max(
+                    tension_scores[beliefs[i].id], contradiction_score
+                )
+                tension_scores[beliefs[j].id] = max(
+                    tension_scores[beliefs[j].id], contradiction_score
+                )
+
+                # store edges (spec 3.7) - only if score >= 0.5
+                if has_neg and contradiction_score >= 0.5:
+                    self._contradiction_edges.append(
+                        (beliefs[i].id, beliefs[j].id, contradiction_score)
+                    )
+                elif not has_neg and sim >= support_threshold:
+                    self._support_edges.append(
+                        (beliefs[i].id, beliefs[j].id, sim)
+                    )
+
+            if pair_count > max_pairs:
+                break
+
+        # apply capped tensions to beliefs
+        tension_cap = self.settings.tension_cap
         for b in beliefs:
-            b.tension = 0.0
+            b.tension = min(tension_scores.get(b.id, 0.0), tension_cap)
+
+    def _has_negation(self, text1: str, text2: str) -> bool:
+        """
+        Negation heuristic per spec 3.4.3:
+        - One text has negation word, other doesn't
+        - Or they contain antonym pairs
+        """
+        t1, t2 = text1.lower(), text2.lower()
+
+        negation_words = {"not", "no", "never", "don't", "doesn't", "didn't",
+                          "isn't", "aren't", "wasn't", "weren't", "won't"}
+
+        def has_negation(t: str) -> bool:
+            return any(f" {neg} " in f" {t} " for neg in negation_words)
+
+        neg1, neg2 = has_negation(t1), has_negation(t2)
+        if neg1 != neg2:
+            return True
+
+        # antonym pairs
+        antonyms = [("true", "false"), ("yes", "no"), ("always", "never"),
+                    ("good", "bad"), ("like", "dislike"), ("love", "hate")]
+
+        def contains_word(text: str, word: str) -> bool:
+            import re
+            return bool(re.search(rf"\b{re.escape(word)}\b", text))
+
+        for w1, w2 in antonyms:
+            if (contains_word(t1, w1) and contains_word(t2, w2)) or \
+               (contains_word(t1, w2) and contains_word(t2, w1)):
+                return True
+
+        return False
 
     async def _trigger_ecological_actions(self, beliefs: List[Belief]) -> List[dict]:
         """
@@ -233,6 +337,7 @@ class BeliefEcologyLoop:
         beliefs: List[Belief],
         context: str,
         actions: List[dict],
+        rl_state_action: Optional[dict] = None,
     ) -> Snapshot:
         """
         Step 7: Persist current ecology state as a snapshot.
@@ -268,11 +373,22 @@ class BeliefEcologyLoop:
             global_tension=global_tension,
             cluster_metrics={},  # TODO: compute cluster stats
             agent_actions=actions,
-            rl_state_action=None,  # TODO: RL integration
+            rl_state_action=rl_state_action,
+            contradiction_edges=self._contradiction_edges,
+            support_edges=self._support_edges,
+            lineage_edges=self._compute_lineage_edges(beliefs),
         )
 
         await self.snapshot_store.save_snapshot(snapshot)
         return snapshot
+
+    def _compute_lineage_edges(self, beliefs: List[Belief]) -> list[tuple]:
+        """Extract parent-child lineage edges from beliefs."""
+        edges = []
+        for b in beliefs:
+            if b.parent_id is not None:
+                edges.append((b.parent_id, b.id))
+        return edges
 
 
 __all__ = ["BeliefEcologyLoop"]

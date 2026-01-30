@@ -1,10 +1,11 @@
 # Author: Bradley R. Kinnard
-"""Tests for RL Training Loop."""
+"""Tests for ES-based RL Training."""
 
 import pytest
 import numpy as np
 
 from backend.rl.training import (
+    ESTrainer,
     RLTrainer,
     TrainingConfig,
     TrainingMetrics,
@@ -21,6 +22,29 @@ def _make_belief(confidence: float = 0.8) -> Belief:
         status=BeliefStatus.Active,
         origin=OriginMetadata(source="test"),
     )
+
+
+class TestTrainingConfig:
+    def test_default_values(self):
+        cfg = TrainingConfig()
+        assert cfg.total_generations == 100
+        assert cfg.population_size == 20
+        assert cfg.learning_rate == 0.03
+
+    def test_custom_values(self):
+        cfg = TrainingConfig(total_generations=50, population_size=10)
+        assert cfg.total_generations == 50
+        assert cfg.population_size == 10
+
+
+class TestTrainingMetrics:
+    def test_to_dict(self):
+        metrics = TrainingMetrics(generation=5, avg_return=10.5)
+        d = metrics.to_dict()
+
+        assert d["generation"] == 5
+        assert d["avg_return"] == 10.5
+        assert "best_return" in d
 
 
 class TestRolloutBuffer:
@@ -50,6 +74,12 @@ class TestRolloutBuffer:
         assert buffer.is_full(10)
         assert not buffer.is_full(20)
 
+    def test_compute_returns_empty(self):
+        buffer = RolloutBuffer()
+        returns, advantages = buffer.compute_returns_and_advantages(0.99, 0.95)
+        assert len(returns) == 0
+        assert len(advantages) == 0
+
     def test_compute_returns_and_advantages(self):
         buffer = RolloutBuffer()
         for i in range(5):
@@ -71,162 +101,100 @@ class TestRolloutBuffer:
         assert returns.dtype == np.float32
 
 
-class TestTrainingConfig:
-    def test_default_values(self):
-        config = TrainingConfig()
-        assert config.total_episodes == 1000
-        assert config.learning_rate == 3e-4
-        assert config.gamma == 0.99
-
-    def test_custom_values(self):
-        config = TrainingConfig(total_episodes=100, gamma=0.95)
-        assert config.total_episodes == 100
-        assert config.gamma == 0.95
-
-
-class TestTrainingMetrics:
-    def test_to_dict(self):
-        metrics = TrainingMetrics(episode=5, episode_return=10.5)
-        d = metrics.to_dict()
-
-        assert d["episode"] == 5
-        assert d["episode_return"] == 10.5
-
-
-class TestRLTrainer:
+class TestESTrainer:
     def test_init(self):
         env = BeliefEcologyEnv()
-        trainer = RLTrainer(env)
+        trainer = ESTrainer(env)
 
         assert trainer.env is env
-        assert trainer.config is not None
+        assert trainer.policy is not None
+        assert trainer.es is not None
 
-    def test_sample_action_shape(self):
-        env = BeliefEcologyEnv()
-        trainer = RLTrainer(env)
+    def test_evaluate_candidate(self):
+        env_config = EnvConfig(max_steps_per_episode=5)
+        env = BeliefEcologyEnv(env_config)
+        trainer = ESTrainer(env)
 
-        state = np.zeros(BeliefEcologyEnv.STATE_DIM)
-        action, log_prob, value = trainer._sample_action(state)
+        mean_return = trainer._evaluate_candidate(trainer.policy, num_episodes=2)
 
-        assert action.shape == (BeliefEcologyEnv.ACTION_DIM,)
-        assert isinstance(log_prob, float)
-        assert isinstance(value, float)
+        assert isinstance(mean_return, float)
+        assert trainer._metrics.total_episodes == 2
 
-    def test_sample_action_clipped(self):
-        env = BeliefEcologyEnv()
-        trainer = RLTrainer(env)
+    def test_evaluate_policy(self):
+        env_config = EnvConfig(max_steps_per_episode=5)
+        env = BeliefEcologyEnv(env_config)
+        config = TrainingConfig(eval_episodes=3)
+        trainer = ESTrainer(env, config)
 
-        state = np.zeros(BeliefEcologyEnv.STATE_DIM)
-        for _ in range(100):
-            action, _, _ = trainer._sample_action(state)
-            assert np.all(action >= -1.0)
-            assert np.all(action <= 1.0)
+        mean_return = trainer._evaluate_policy()
 
-    def test_run_episode(self):
-        env = BeliefEcologyEnv(EnvConfig(max_steps_per_episode=10))
-        trainer = RLTrainer(env)
+        assert isinstance(mean_return, float)
 
-        env.reset()
-        ep_return, ep_length = trainer._run_episode()
+    def test_train_short(self):
+        """Test training loop runs to completion."""
+        env_config = EnvConfig(max_steps_per_episode=5)
+        env = BeliefEcologyEnv(env_config)
 
-        assert isinstance(ep_return, float)
-        assert ep_length <= 10
-
-    def test_update_policy(self):
-        env = BeliefEcologyEnv()
-        trainer = RLTrainer(env)
-
-        # fill buffer with some data
-        for _ in range(10):
-            trainer._buffer.add(
-                state=np.zeros(BeliefEcologyEnv.STATE_DIM),
-                action=np.random.randn(BeliefEcologyEnv.ACTION_DIM),
-                reward=np.random.randn(),
-                value=0.0,
-                log_prob=-1.0,
-                done=False,
-            )
-
-        p_loss, v_loss, entropy = trainer._update_policy()
-
-        assert isinstance(p_loss, float)
-        assert isinstance(v_loss, float)
-        assert isinstance(entropy, float)
-        assert len(trainer._buffer) == 0  # buffer cleared
-
-    def test_evaluate(self):
-        env = BeliefEcologyEnv(EnvConfig(max_steps_per_episode=5))
-        trainer = RLTrainer(env)
-
-        metrics = trainer.evaluate(num_episodes=3)
-
-        assert "mean_return" in metrics
-        assert "std_return" in metrics
-        assert "mean_length" in metrics
-
-
-class TestTrainingLoop:
-    def test_short_training(self):
         config = TrainingConfig(
-            total_episodes=5,
-            max_steps_per_episode=10,
-            buffer_size=20,
+            total_generations=3,
+            episodes_per_candidate=1,
+            population_size=4,
+            eval_frequency=2,
+            eval_episodes=1,
+            patience=100,  # disable early stopping
         )
-        env = BeliefEcologyEnv(EnvConfig(max_steps_per_episode=10))
-        trainer = RLTrainer(env, config)
+        trainer = ESTrainer(env, config)
 
         metrics = trainer.train()
 
-        assert metrics.episode == 5
-        assert metrics.total_steps > 0
+        assert metrics.generation == 3
+        assert metrics.total_episodes == 3 * 4 * 1  # gens * pop * eps
 
-    def test_callbacks(self):
-        config = TrainingConfig(
-            total_episodes=3,
-            max_steps_per_episode=5,
-            buffer_size=10,
-        )
-        env = BeliefEcologyEnv(EnvConfig(max_steps_per_episode=5))
-        trainer = RLTrainer(env, config)
-
-        episode_ends = []
-        trainer.set_on_episode_end(lambda m: episode_ends.append(m.episode))
-
-        trainer.train()
-
-        assert len(episode_ends) == 3
-
-    def test_early_stopping(self):
-        config = TrainingConfig(
-            total_episodes=100,
-            max_steps_per_episode=5,
-            buffer_size=10,
-            target_return=1000.0,  # unreachable high target
-        )
-        env = BeliefEcologyEnv(EnvConfig(max_steps_per_episode=5))
-        trainer = RLTrainer(env, config)
-
-        metrics = trainer.train()
-
-        # should run all episodes since target is unreachable
-        assert metrics.episode == 100
-
-
-class TestPolicySaveLoad:
-    def test_save_and_load(self, tmp_path):
+    def test_save_load_policy(self, tmp_path):
         env = BeliefEcologyEnv()
-        trainer = RLTrainer(env)
+        trainer = ESTrainer(env)
 
-        # modify policy
-        trainer._policy_mean = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+        # set some params
+        trainer.policy.set_params(np.random.randn(trainer.policy.param_count) * 0.1)
+        original = trainer.policy.get_params().copy()
 
         path = str(tmp_path / "policy.npz")
         trainer.save_policy(path)
 
-        # load into new trainer
-        trainer2 = RLTrainer(env)
+        # create new trainer and load
+        trainer2 = ESTrainer(env)
         trainer2.load_policy(path)
 
         np.testing.assert_array_almost_equal(
-            trainer._policy_mean, trainer2._policy_mean
+            trainer2.policy.get_params(), original
         )
+
+    def test_callbacks_called(self):
+        env_config = EnvConfig(max_steps_per_episode=3)
+        env = BeliefEcologyEnv(env_config)
+
+        config = TrainingConfig(
+            total_generations=2,
+            episodes_per_candidate=1,
+            population_size=2,
+            eval_frequency=1,
+            eval_episodes=1,
+        )
+        trainer = ESTrainer(env, config)
+
+        gen_calls = []
+        eval_calls = []
+
+        trainer.set_on_generation_end(lambda m: gen_calls.append(m.generation))
+        trainer.set_on_eval(lambda m: eval_calls.append(m.eval_return))
+
+        trainer.train()
+
+        assert len(gen_calls) == 2
+        assert len(eval_calls) == 2
+
+
+class TestRLTrainerAlias:
+    def test_alias_works(self):
+        # RLTrainer should be alias to ESTrainer
+        assert RLTrainer is ESTrainer

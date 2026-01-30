@@ -82,6 +82,11 @@ class Snapshot(SnapshotBaseModel):
     events: List = Field(default_factory=list)  # List[BaseEvent] from events.py
     rl_state_action: Optional[dict] = None
 
+    # Edge relationships per spec 3.7
+    contradiction_edges: List[Tuple[UUID, UUID, float]] = Field(default_factory=list)
+    support_edges: List[Tuple[UUID, UUID, float]] = Field(default_factory=list)
+    lineage_edges: List[Tuple[UUID, UUID]] = Field(default_factory=list)
+
     @field_validator("global_tension")
     @classmethod
     def validate_global_tension(cls, v: float) -> float:
