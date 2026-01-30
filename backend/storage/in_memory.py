@@ -158,6 +158,27 @@ class InMemorySnapshotStore(SnapshotStoreABC):
         results.sort(key=lambda s: s.metadata.iteration, reverse=True)
         return results[offset : offset + limit]
 
+    async def list_all(self) -> List[Snapshot]:
+        """Get all snapshots."""
+        return await self.list_snapshots(limit=10000)
+
+    async def get_by_iteration(self, iteration: int) -> Optional[Snapshot]:
+        """Get snapshot by iteration number."""
+        for snapshot_id in self._snapshots.keys():
+            s = await self.get_snapshot(snapshot_id)
+            if s and s.metadata.iteration == iteration:
+                return s
+        return None
+
+    async def get_latest(self) -> Optional[Snapshot]:
+        """Get the most recent snapshot."""
+        snapshots = await self.list_snapshots(limit=1)
+        return snapshots[0] if snapshots else None
+
+    async def save(self, snapshot: Snapshot) -> Snapshot:
+        """Alias for save_snapshot."""
+        return await self.save_snapshot(snapshot)
+
     async def compare_snapshots(
         self, snapshot_id_1: UUID, snapshot_id_2: UUID
     ) -> SnapshotDiff:

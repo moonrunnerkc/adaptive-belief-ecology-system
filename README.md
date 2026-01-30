@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-427%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-448%20passing-brightgreen.svg)]()
 
 A research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
 
@@ -12,22 +12,22 @@ Most LLM memory systems use key-value stores or vector retrieval. ABES implement
 
 ## What This Is
 
-ABES is a **backend-only Python library** (no API, no UI) implementing:
+ABES is a Python research platform implementing:
 
 - **Belief data model** with confidence, tension, status, tags, and lineage tracking
 - **15 specialized agents** for perception, mutation, resolution, decay, consistency, etc.
 - **Agent scheduler** with 14-phase execution order
 - **RL environment** (15-dim state, 7-dim action) with Evolution Strategy training
 - **Snapshot system** capturing belief graph edges (contradiction, support, lineage)
+- **Semantic clustering** with incremental assignment and automatic maintenance
+- **REST API** with FastAPI for beliefs, snapshots, agents, and clusters
 - **In-memory storage** for beliefs and snapshots
 
 ## What This Is Not
 
-- No HTTP API exists (the `backend/api/` folder is empty)
 - No frontend exists (placeholder folder structure only)
 - No benchmark scenarios defined
 - No metrics collection implemented
-- No configuration files shipped
 
 ## Documentation
 
@@ -45,16 +45,16 @@ ABES is a **backend-only Python library** (no API, no UI) implementing:
 | 15 Specialized Agents | ✅ Implemented | 361 tests |
 | Agent Scheduler | ✅ Implemented | 20 tests |
 | Belief Clustering | ✅ Implemented | 16 tests |
+| REST API (FastAPI) | ✅ Implemented | 21 tests |
 | RL Environment | ✅ Implemented | 20 tests |
 | RL Training (ES) | ✅ Implemented | 10 tests |
 | Belief/Snapshot Models | ✅ Implemented | — |
 | Snapshot Edges | ✅ Implemented | — |
 | Core BEL Loop | ⚠️ Code exists | **Untested** |
-| API Layer | ❌ Not started | — |
 | Frontend | ❌ Not started | — |
 | Benchmarks | ❌ Not started | — |
 
-**427 tests passing** — all agent, clustering, and RL tests.
+**448 tests passing** — agents, clustering, API, and RL.
 
 ---
 
