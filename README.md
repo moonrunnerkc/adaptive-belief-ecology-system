@@ -1,49 +1,59 @@
-# ABES – Adaptive Belief Ecology System
+# ABES — Adaptive Belief Ecology System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-411%20passing-brightgreen.svg)]()
 
-ABES is an open-source research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
+A research platform for **Belief Ecology**: treating beliefs as living, evolving entities instead of static memory entries.
 
 Most LLM memory systems use key-value stores or vector retrieval. ABES implements something different—beliefs decay over time, contradict each other, get reinforced when similar evidence arrives, mutate under tension, and cluster around related concepts. Specialized agents manage this ecology, and reinforcement learning optimizes the control parameters.
 
-## Current Status (January 2026)
+---
+
+## What This Is
+
+ABES is a **backend-only Python library** (no API, no UI) implementing:
+
+- **Belief data model** with confidence, tension, status, tags, and lineage tracking
+- **15 specialized agents** for perception, mutation, resolution, decay, consistency, etc.
+- **Agent scheduler** with 14-phase execution order
+- **RL environment** (15-dim state, 7-dim action) with Evolution Strategy training
+- **Snapshot system** capturing belief graph edges (contradiction, support, lineage)
+- **In-memory storage** for beliefs and snapshots
+
+## What This Is Not
+
+- No HTTP API exists (the `backend/api/` folder is empty)
+- No frontend exists (placeholder folder structure only)
+- No benchmark scenarios defined
+- No metrics collection implemented
+- No configuration files shipped
+- No documentation beyond this README
+
+---
+
+## Current Status
 
 | Component | Status | Tests |
 |-----------|--------|-------|
-| Belief Ecology Engine | ✅ Complete | Core loop, decay, tension, ranking |
-| 15 Specialized Agents | ✅ Complete | 361 tests |
-| Agent Scheduler | ✅ Complete | 20 tests |
-| RL Environment | ✅ Complete | 20 tests |
-| RL Training (ES) | ✅ Complete | 10 tests |
-| Snapshot Edges | ✅ Complete | contradiction, support, lineage |
-| Frontend | ❌ Not started | — |
+| 15 Specialized Agents | ✅ Implemented | 361 tests |
+| Agent Scheduler | ✅ Implemented | 20 tests |
+| RL Environment | ✅ Implemented | 20 tests |
+| RL Training (ES) | ✅ Implemented | 10 tests |
+| Belief/Snapshot Models | ✅ Implemented | — |
+| Snapshot Edges | ✅ Implemented | — |
+| Core BEL Loop | ⚠️ Code exists | **Untested** |
 | API Layer | ❌ Not started | — |
+| Frontend | ❌ Not started | — |
+| Benchmarks | ❌ Not started | — |
 
-**411 tests passing** across the backend.
+**411 tests passing** — all agent and RL tests. The `BeliefEcologyLoop` class itself has no direct tests.
 
-## What's Implemented
+---
 
-### Belief Ecology Loop (BEL)
+## Agents
 
-The core loop in `backend/core/bel/loop.py` runs 7 steps per iteration:
-
-1. **Load** active beliefs from storage
-2. **Decay** confidence based on time since reinforcement
-3. **Compute tensions** via pairwise contradiction scoring
-4. **Trigger actions** (mutation/resolution candidates)
-5. **Score relevance** to current context
-6. **Rank** beliefs by weighted formula
-7. **Snapshot** full state with edges
-
-All formulas match the spec exactly:
-- Decay: `confidence *= decay_rate ^ hours_elapsed`
-- Contradiction: `semantic_similarity × negation_signal`
-- Tension: `max(contradiction_score)` across pairs
-- Ranking: `0.4×relevance + 0.3×confidence + 0.2×recency - 0.1×tension`
-
-### 15 Specialized Agents
+All 15 agents are fully implemented with tests:
 
 | Agent | Purpose |
 |-------|---------|
@@ -63,19 +73,11 @@ All formulas match the spec exactly:
 | NarrativeExplainerAgent | Generates human-readable explanations |
 | SafetySanityAgent | Enforces limits and vetoes |
 
-### Agent Scheduler
+Agents run in a defined 14-phase order via `AgentScheduler`.
 
-Per spec 4.2, agents run in a defined order:
+---
 
-```
-Perception → Creation → Reinforcement → Decay → Contradiction →
-Mutation → Resolution → Relevance → RL Policy → Consistency →
-Safety → Baseline → Narrative → Experiment
-```
-
-Supports conditional execution, frequency control (`run_every_n`), and enable/disable per agent.
-
-### RL Layer
+## RL Layer
 
 **Environment** (`backend/rl/environment.py`):
 - 15-dimensional state (confidence stats, tension, belief counts, etc.)
@@ -84,7 +86,7 @@ Supports conditional execution, frequency control (`run_every_n`), and enable/di
 
 **Policy** (`backend/rl/policy.py`):
 - Pure NumPy MLP with tanh activations
-- Save/load support
+- Save/load to `.npz` files
 - No PyTorch dependency
 
 **Training** (`backend/rl/training.py`):
@@ -92,55 +94,53 @@ Supports conditional execution, frequency control (`run_every_n`), and enable/di
 - Population-based search with gradient-free updates
 - Checkpointing and early stopping
 
-### Snapshot System
-
-Each snapshot captures:
-- All belief states (content, confidence, tension, status, etc.)
-- **Contradiction edges**: `[(belief_a, belief_b, score)]`
-- **Support edges**: high similarity without negation
-- **Lineage edges**: parent → child mutations
-- RL state/action for that iteration
-- Agent actions taken
+---
 
 ## Repository Structure
 
 ```
 backend/
-├── agents/           # 15 specialized agents + scheduler
+├── agents/           # 16 files: 15 agents + scheduler
 ├── core/
-│   ├── bel/          # Belief Ecology Loop implementation
-│   └── models/       # Belief, Snapshot, Event models
+│   ├── bel/          # Loop, decay, ranking, compression, timeline
+│   └── models/       # Belief, Snapshot models
 ├── rl/               # Environment, Policy, Training
-├── storage/          # Belief and snapshot stores
-└── util/
+├── storage/          # Abstract base + in-memory implementations
+├── api/              # (empty)
+├── benchmark/        # (empty)
+├── metrics/          # (empty)
+└── util/             # (empty)
 
-frontend/             # (not yet implemented)
-experiments/          # Scenario definitions
-configs/              # Parameters and settings
+frontend/             # (placeholder stubs only)
+configs/              # (empty)
+experiments/          # (empty)
 tests/
-├── agents/           # 361 agent tests
-└── rl/               # 50 RL tests
+├── agents/           # 16 test files, 361 tests
+└── rl/               # 3 test files, 50 tests
 ```
 
-## Getting Started
+---
+
+## Installation
 
 ```bash
-# Clone
 git clone https://github.com/moonrunnerkc/abes.git
 cd abes
 
-# Create venv and install
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Run tests
-pytest tests/ -v
-
-# Should see: 411 passed
+# Verify
+pytest tests/ -q
+# 411 passed
 ```
 
-### Quick Usage
+Requires Python 3.10+ and downloads `all-MiniLM-L6-v2` (~80MB) on first embedding use.
+
+---
+
+## Usage
 
 ```python
 from backend.rl import BeliefEcologyEnv, ESTrainer, TrainingConfig
@@ -159,25 +159,28 @@ print(f"Best return: {metrics.best_return:.3f}")
 trainer.save_policy("policy.npz")
 ```
 
-## What's Next
+---
 
-1. **FastAPI Routes** — CRUD for beliefs, snapshots, agents
-2. **Frontend** — Next.js 14 with belief graph visualization
-3. **Benchmark Lab** — Scenarios comparing BE vs RAG vs chat history
-4. **Cluster Maintenance** — Periodic merge/split per spec 3.6.2
+## Formulas
 
-## Contributing
+All agents implement formulas from the spec:
 
-This is a research project with strict spec adherence. I'm not accepting PRs until Phase 1 is stable.
+- **Decay**: `confidence *= decay_rate ^ hours_elapsed`
+- **Contradiction**: `semantic_similarity × negation_signal`
+- **Tension**: `max(contradiction_score)` across pairs
+- **Ranking**: `0.4×relevance + 0.3×confidence + 0.2×recency - 0.1×tension`
 
-Once ready, I'll welcome:
-- Bug reports
-- Performance improvements
-- New benchmark scenarios
-- Research collaborations
+---
 
-Open an issue first to discuss.
+## Known Gaps
+
+1. `BeliefEcologyLoop` in `backend/core/bel/loop.py` has no direct tests
+2. Snapshot compression, timeline, and query utilities are untested
+3. No API, frontend, benchmarks, or metrics exist
+4. No cluster maintenance (merge/split) implemented
+
+---
 
 ## License
 
-MIT © 2025-2026 ABES Contributors
+MIT © 2025-2026 Bradley R. Kinnard
