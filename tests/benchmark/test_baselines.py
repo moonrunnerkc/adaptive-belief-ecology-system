@@ -44,7 +44,7 @@ class TestFIFOMemory:
     async def test_capacity_eviction(self, fifo):
         for i in range(15):
             await fifo.add(f"content {i}")
-        
+
         assert fifo.count() == 10  # evicted 5
         all_mems = await fifo.get_all()
         # oldest (0-4) should be gone
@@ -56,7 +56,7 @@ class TestFIFOMemory:
     async def test_search(self, fifo):
         emb = _random_embedding()
         await fifo.add("test", embedding=emb)
-        
+
         results = await fifo.search(emb, top_k=1)
         assert len(results) == 1
         assert results[0].content == "test"
@@ -83,20 +83,20 @@ class TestLRUMemory:
     async def test_capacity_eviction(self, lru):
         for i in range(15):
             await lru.add(f"content {i}")
-        
+
         assert lru.count() == 10  # evicted 5
 
     @pytest.mark.asyncio
     async def test_search_updates_order(self, lru):
         emb1 = _random_embedding()
         emb2 = _random_embedding()
-        
+
         mem1 = await lru.add("first", embedding=emb1)
         mem2 = await lru.add("second", embedding=emb2)
-        
+
         # both should exist
         assert lru.count() == 2
-        
+
         # search for first - should work
         results = await lru.search(emb1, top_k=1)
         assert len(results) == 1
@@ -125,7 +125,7 @@ class TestVectorStoreMemory:
         small = VectorStoreMemory(max_size=5)
         for i in range(5):
             await small.add(f"content {i}")
-        
+
         with pytest.raises(ValueError) as exc:
             await small.add("one too many")
         assert "capacity" in str(exc.value)
@@ -134,7 +134,7 @@ class TestVectorStoreMemory:
     async def test_search(self, vector):
         emb = _random_embedding()
         await vector.add("test", embedding=emb)
-        
+
         results = await vector.search(emb, top_k=1)
         assert len(results) == 1
         assert results[0].content == "test"

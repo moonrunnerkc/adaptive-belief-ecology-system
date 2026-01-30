@@ -48,11 +48,11 @@ class TestContradictionScenario:
     def test_generate_initial_beliefs(self):
         scenario = ContradictionScenario(contradiction_ratio=0.3)
         beliefs = scenario.generate_initial_beliefs()
-        
+
         assert len(beliefs) == 200  # default count
         facts = [b for b in beliefs if "fact" in b.tags]
         counters = [b for b in beliefs if "counter" in b.tags]
-        
+
         assert len(counters) == 60  # 30% of 200
         assert len(facts) == 140
 
@@ -78,7 +78,7 @@ class TestContradictionScenario:
             final_avg_tension=0.4,
             final_cluster_count=10,
         )
-        
+
         scores = scenario.evaluate(result)
         assert "tension_stability" in scores
         assert "resolution_rate" in scores
@@ -93,7 +93,7 @@ class TestDecayScenario:
     def test_generate_initial_beliefs(self):
         scenario = DecayScenario()
         beliefs = scenario.generate_initial_beliefs()
-        
+
         assert len(beliefs) == 100
         assert all(b.confidence == 0.8 for b in beliefs)
         assert all("memory" in b.tags for b in beliefs)
@@ -119,7 +119,7 @@ class TestDecayScenario:
             final_avg_tension=0.0,
             final_cluster_count=5,
         )
-        
+
         scores = scenario.evaluate(result)
         assert "deprecated_ratio" in scores
         assert "confidence_decay" in scores
@@ -134,7 +134,7 @@ class TestScaleScenario:
     def test_generate_initial_beliefs(self):
         scenario = ScaleScenario()
         beliefs = scenario.generate_initial_beliefs()
-        
+
         assert len(beliefs) == 1000
         # check varied confidence
         confidences = {b.confidence for b in beliefs}
@@ -162,7 +162,7 @@ class TestScaleScenario:
             final_avg_tension=0.1,
             final_cluster_count=50,
         )
-        
+
         scores = scenario.evaluate(result)
         assert "performance" in scores
         assert "scale_management" in scores
