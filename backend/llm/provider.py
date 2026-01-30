@@ -89,7 +89,7 @@ HANDLING CONFLICTING INFORMATION:
 
 Guidelines:
 1. Use ALL these facts to give personalized, contextual responses
-2. Refer to the user's information correctly (e.g., "You have a dog named Reaper..." not "My dog Reaper...")
+2. Refer to the user's information correctly (e.g., "You mentioned you have a dog..." not "My dog...")
 3. When asked about the user, provide a COMPLETE summary of everything listed above
 4. For conflicting facts, favor the higher-confidence one and explain why
 5. When the user shares new information, acknowledge it naturally"""
