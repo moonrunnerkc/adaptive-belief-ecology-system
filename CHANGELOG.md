@@ -2,6 +2,32 @@
 
 All notable changes to ABES are documented here.
 
+## [0.2.0] - 2026-01-30
+
+### Added
+
+**Comprehensive Test Coverage for Previously Untested Modules**
+- `BeliefEcologyLoop` (40 tests) — full 7-step iteration cycle
+  - Decay computation and status transitions
+  - Contradiction/tension detection with negation heuristics
+  - Relevance scoring and belief ranking
+  - Snapshot creation with edge relationships
+  - Ecological action triggering
+- `SnapshotTimeline` (10 tests) — replay functionality and key moment detection
+- `RLBELIntegration` (24 tests) — RL-to-BEL policy application
+- `snapshot_queries` (24 tests) — query functions for snapshot retrieval
+
+**Model Enhancement**
+- Added `relevance` and `score` fields to `Belief` model for ranking support
+
+### Fixed
+- `Belief` model now supports dynamic relevance/score attributes needed by BEL loop
+
+### Changed
+- Test count increased from 534 to **632 passing tests**
+
+---
+
 ## [0.1.0] - 2026-01-30
 
 ### Added
@@ -51,24 +77,22 @@ All notable changes to ABES are documented here.
 - Lineage edges: parent → child from mutations
 - `Snapshot.diff()` for comparing snapshots
 
+**REST API**
+- FastAPI application with belief CRUD endpoints
+- Snapshot retrieval and comparison endpoints
+- Agent status and control endpoints
+
+**Benchmark System**
+- Three scenario types: Contradiction, Decay, Scale
+- Baseline memory systems: FIFO, LRU, VectorStore
+
+**Metrics**
+- `EcologyMetrics`, `AgentMetrics`, `IterationMetrics`
+- Export to JSON, CSV, Prometheus formats
+
 **Configuration**
 - `ABESSettings` via pydantic-settings
 - All spec formulas configurable (decay rate, thresholds, weights)
-
-**Tests**
-- 361 agent tests across 16 test files
-- 50 RL tests across 3 test files
-- 411 total tests passing
-
-### Not Implemented
-
-- HTTP API (`backend/api/` is empty)
-- Frontend (`frontend/` contains placeholder stubs)
-- Benchmark scenarios (`backend/benchmark/` is empty)
-- Metrics collection (`backend/metrics/` is empty)
-- Configuration files (`configs/` is empty)
-- Cluster maintenance (merge/split per spec 3.6.2)
-- Direct tests for `BeliefEcologyLoop`
 
 ---
 

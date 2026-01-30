@@ -62,6 +62,10 @@ class Belief(BeliefBaseModel):
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
+    # computed fields for ranking (set by BEL loop, not persisted)
+    relevance: Optional[float] = None  # similarity to current context
+    score: Optional[float] = None  # composite ranking score
+
     # NOTE: updated_at only refreshed via helper methods (increment_use, reinforce, apply_decay)
     # or dict reconstruction. Direct field assignment (belief.confidence = X) will NOT update it.
     # This is intentional - use helpers for tracked changes, or manage timestamps at repo layer.
