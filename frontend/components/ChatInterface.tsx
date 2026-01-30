@@ -70,7 +70,18 @@ export function ChatInterface() {
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'belief_event') {
-          setBeliefEvents(prev => [data.data, ...prev].slice(0, 50));
+          // Add event with unique key to prevent duplicates
+          setBeliefEvents(prev => {
+            const newEvent = data.data;
+            // Check if this event already exists (by belief_id + event_type + similar timestamp)
+            const isDuplicate = prev.some(e =>
+              e.belief_id === newEvent.belief_id &&
+              e.event_type === newEvent.event_type &&
+              Math.abs(new Date(e.timestamp).getTime() - new Date(newEvent.timestamp).getTime()) < 5000
+            );
+            if (isDuplicate) return prev;
+            return [newEvent, ...prev].slice(0, 50);
+          });
         }
       };
 
@@ -174,7 +185,15 @@ export function ChatInterface() {
 
       setMessages(prev => [...prev, assistantMessage]);
       setBeliefEvents(prev => {
-        const updated = [...turn.events, ...prev].slice(0, 50);
+        // Deduplicate events by belief_id + event_type
+        const newEvents = turn.events.filter(newEvent =>
+          !prev.some(e =>
+            e.belief_id === newEvent.belief_id &&
+            e.event_type === newEvent.event_type &&
+            Math.abs(new Date(e.timestamp).getTime() - new Date(newEvent.timestamp).getTime()) < 5000
+          )
+        );
+        const updated = [...newEvents, ...prev].slice(0, 50);
         console.log('Updated beliefEvents:', updated.length);
         return updated;
       });

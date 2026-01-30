@@ -18,6 +18,7 @@ from ..agents import (
     ContradictionAuditorAgent,
     RelevanceCuratorAgent,
     DecayControllerAgent,
+    MutationEngineerAgent,
 )
 from ..core.config import settings
 from ..core.models.belief import Belief, BeliefStatus, OriginMetadata
@@ -97,6 +98,7 @@ class ChatService:
         self._auditor = ContradictionAuditorAgent()
         self._relevance = RelevanceCuratorAgent()
         self._decay = DecayControllerAgent()
+        self._mutation = MutationEngineerAgent()
 
         # Session storage
         self._sessions: dict[UUID, ChatSession] = {}
@@ -210,15 +212,23 @@ class ChatService:
         # Build tension map from events
         tension_map: dict[UUID, float] = {}
         for event in contradiction_events:
-            if hasattr(event, "belief_a_id"):
-                tension_map[event.belief_a_id] = max(
-                    tension_map.get(event.belief_a_id, 0.0),
-                    event.score,
-                )
-                tension_map[event.belief_b_id] = max(
-                    tension_map.get(event.belief_b_id, 0.0),
-                    event.score,
-                )
+            # ContradictionDetectedEvent has belief_id and tension
+            tension_map[event.belief_id] = max(
+                tension_map.get(event.belief_id, 0.0),
+                event.tension,
+            )
+            # Emit tension event for UI
+            belief = next((b for b in all_beliefs if b.id == event.belief_id), None)
+            if belief:
+                turn.events.append(BeliefEvent(
+                    event_type="tension_changed",
+                    belief_id=event.belief_id,
+                    content=belief.content,
+                    confidence=belief.confidence,
+                    tension=event.tension,
+                    details={"threshold": event.threshold},
+                ))
+                self._emit_event(turn.events[-1])
 
         # Update beliefs with new tensions
         for belief in all_beliefs:
@@ -228,17 +238,51 @@ class ChatService:
                 if abs(new_tension - old_tension) > 0.1:
                     belief.tension = new_tension
                     await self.belief_store.update(belief)
+
+        # Step 6: Mutation - evolve high-tension beliefs
+        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        for belief in all_beliefs:
+            # Check if belief qualifies for mutation (high tension, low-ish confidence)
+            if belief.tension >= 0.5 and belief.confidence < 0.9:
+                # Find contradicting belief
+                contradicting = None
+                for other in all_beliefs:
+                    if other.id != belief.id and other.id in tension_map:
+                        contradicting = other
+                        break
+
+                proposal = self._mutation.propose_mutation(
+                    belief=belief,
+                    contradicting=contradicting,
+                    all_beliefs=all_beliefs,
+                )
+
+                if proposal:
+                    # The proposal already contains the mutated belief
+                    mutated = proposal.mutated_belief
+                    await self.belief_store.create(mutated)
+
+                    # Mark original as mutated
+                    belief.status = BeliefStatus.Mutated
+                    await self.belief_store.update(belief)
+
+                    turn.beliefs_mutated.append(mutated.id)
                     turn.events.append(BeliefEvent(
-                        event_type="tension_changed",
-                        belief_id=belief.id,
-                        content=belief.content,
-                        confidence=belief.confidence,
-                        tension=belief.tension,
-                        details={"old_tension": old_tension},
+                        event_type="mutated",
+                        belief_id=mutated.id,
+                        content=mutated.content,
+                        confidence=mutated.confidence,
+                        tension=0.0,
+                        details={
+                            "original_id": str(belief.id),
+                            "original_content": belief.content,
+                            "strategy": proposal.strategy,
+                        },
                     ))
                     self._emit_event(turn.events[-1])
+                    logger.info(f"Mutated belief: {belief.content[:30]}... -> {mutated.content[:30]}...")
 
-        # Step 6: Get beliefs for LLM context
+        # Step 7: Get beliefs for LLM context
         all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
 
         # For generic questions about user memory, include ALL beliefs

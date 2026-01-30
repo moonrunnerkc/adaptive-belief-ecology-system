@@ -74,9 +74,34 @@ def _is_likely_negation(text1: str, text2: str) -> bool:
     if (neg1 > 0) != (neg2 > 0):
         return True
 
-    # TODO: consider pulling opposites from a config file if this list grows
-    opposites = [("true", "false"), ("yes", "no"), ("always", "never"),
-                 ("good", "bad"), ("like", "dislike"), ("love", "hate")]
+    # Common antonym pairs for detecting semantic contradictions
+    opposites = [
+        # Boolean/logical
+        ("true", "false"), ("yes", "no"), ("always", "never"),
+        # Sentiment
+        ("good", "bad"), ("like", "dislike"), ("love", "hate"),
+        # Temperature
+        ("hot", "cold"), ("warm", "cold"), ("warm", "cool"), ("hot", "cool"),
+        # Light
+        ("bright", "dark"), ("light", "dark"), ("sunny", "dark"),
+        ("shining", "dark"), ("shiny", "dark"), ("bright", "dim"),
+        # Weather
+        ("sunny", "cloudy"), ("clear", "cloudy"), ("dry", "wet"), ("rainy", "sunny"),
+        # Size/quantity
+        ("big", "small"), ("large", "small"), ("many", "few"), ("more", "less"),
+        # Speed
+        ("fast", "slow"), ("quick", "slow"),
+        # Position
+        ("up", "down"), ("high", "low"), ("left", "right"), ("in", "out"),
+        # State
+        ("open", "closed"), ("on", "off"), ("alive", "dead"),
+        # Quality
+        ("new", "old"), ("young", "old"), ("clean", "dirty"),
+        # Emotion
+        ("happy", "sad"), ("joy", "sorrow"), ("calm", "angry"),
+        # Agreement
+        ("agree", "disagree"), ("accept", "reject"), ("include", "exclude"),
+    ]
 
     for w1, w2 in opposites:
         if (_contains_word(t1, w1) and _contains_word(t2, w2)) or \

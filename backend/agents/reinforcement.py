@@ -13,13 +13,13 @@ from ..storage.base import BeliefStoreABC
 
 
 # if similarity > this, belief gets reinforced
-RELEVANCE_THRESHOLD = 0.7
+RELEVANCE_THRESHOLD = 0.6  # lowered for chat paraphrasing
 
 # confidence boost per reinforcement (additive, capped at 1.0)
-CONFIDENCE_BOOST = 0.1
+CONFIDENCE_BOOST = 0.05  # smaller boost, more reinforcements needed
 
 # min seconds between reinforcements for same belief
-COOLDOWN_SECONDS = 60
+COOLDOWN_SECONDS = 10  # lowered for interactive chat
 
 # max confidence a belief can reach via reinforcement alone
 MAX_REINFORCED_CONFIDENCE = 0.95

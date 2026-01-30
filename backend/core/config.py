@@ -51,13 +51,14 @@ class ABESSettings(BaseSettings):
     recency_window_hours: int = 168  # 1 week for recency normalization
 
     # --- Mutation Triggers (spec 3.4.7) ---
-    tension_threshold_mutation: float = 0.6
-    confidence_threshold_mutation: float = 0.5
+    tension_threshold_mutation: float = 0.5  # lowered for chat responsiveness
+    confidence_threshold_mutation: float = 0.9  # allow mutation of higher-confidence beliefs
+
     mutation_strategy: str = "rule"  # "rule" or "llm"
 
     # --- Resolution Triggers (spec 3.4.8) ---
-    tension_threshold_resolution: float = 0.7
-    confidence_threshold_resolution: float = 0.6
+    tension_threshold_resolution: float = 0.6  # lowered for chat
+    confidence_threshold_resolution: float = 0.7
 
     # --- Clustering (spec 3.6) ---
     cluster_similarity_threshold: float = 0.7  # min similarity to join cluster
