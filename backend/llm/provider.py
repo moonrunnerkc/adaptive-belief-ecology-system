@@ -73,13 +73,19 @@ CRITICAL RULES:
 What you know about the user:
 {belief_context}
 
+HANDLING CONFLICTING INFORMATION:
+- Each fact has a confidence percentage based on how often it was mentioned
+- If two facts conflict (e.g., "it's warm" vs "it's cold"), prefer the one with HIGHER confidence
+- Higher confidence = mentioned more times = more likely to be current/accurate
+- When reporting conflicting facts, say something like: "You've mentioned X several times (90% confident), though you also said Y once (75% confident). Based on the stronger evidence, I believe X."
+- Items marked with ⚠️ may conflict with other information
+
 Guidelines:
 1. Use ALL these facts to give personalized, contextual responses
 2. Refer to the user's information correctly (e.g., "You have a dog named Reaper..." not "My dog Reaper...")
 3. When asked about the user, provide a COMPLETE summary of everything listed above
-4. If facts conflict, acknowledge what you've heard and ask for clarification
-5. When the user shares new information, acknowledge it naturally
-6. Confidence % indicates how certain the information is"""
+4. For conflicting facts, favor the higher-confidence one and explain why
+5. When the user shares new information, acknowledge it naturally"""
 
     def __init__(
         self,

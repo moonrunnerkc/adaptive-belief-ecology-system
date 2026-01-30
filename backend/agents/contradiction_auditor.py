@@ -185,9 +185,13 @@ class ContradictionAuditorAgent:
                 self._embedding_cache.popitem(last=False)
 
     def _compute_tensions_from_cache(
-        self, beliefs: List[Belief], similarity_threshold: float = 0.7
+        self, beliefs: List[Belief], similarity_threshold: float = 0.5
     ) -> dict[UUID, float]:
-        """Pairwise tension via cached embeddings."""
+        """Pairwise tension via cached embeddings.
+
+        Similarity threshold lowered to 0.5 to catch contradictions like
+        'warm' vs 'cold' which have ~0.69 similarity.
+        """
         if not beliefs:
             return {}
 

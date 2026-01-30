@@ -239,18 +239,39 @@ class ChatService:
                     belief.tension = new_tension
                     await self.belief_store.update(belief)
 
-        # Step 6: Mutation - evolve high-tension beliefs
+        # Step 6: Mutation - only evolve when there's genuine ambiguity
+        # If one belief is clearly more confident, don't mutate - let it "win"
         all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
-        for belief in all_beliefs:
-            # Check if belief qualifies for mutation (high tension, low-ish confidence)
-            if belief.tension >= 0.5 and belief.confidence < 0.9:
-                # Find contradicting belief
-                contradicting = None
-                for other in all_beliefs:
-                    if other.id != belief.id and other.id in tension_map:
-                        contradicting = other
-                        break
 
+        # Group beliefs by high tension (potential contradictions)
+        high_tension_beliefs = [b for b in all_beliefs if b.tension >= 0.5]
+
+        for belief in high_tension_beliefs:
+            # Find the contradicting belief
+            contradicting = None
+            for other in all_beliefs:
+                if other.id != belief.id and other.id in tension_map and other.tension >= 0.5:
+                    contradicting = other
+                    break
+
+            if not contradicting:
+                continue
+
+            # Only mutate if confidences are similar (within 15%)
+            # If one is clearly more confident, it "wins" and we don't need to hedge
+            confidence_diff = abs(belief.confidence - contradicting.confidence)
+
+            if confidence_diff > 0.15:
+                # Clear winner - deprecate the loser, don't mutate
+                loser = belief if belief.confidence < contradicting.confidence else contradicting
+                if loser.id == belief.id:  # Only process each pair once
+                    loser.confidence *= 0.8  # Reduce confidence of loser
+                    await self.belief_store.update(loser)
+                    logger.info(f"Confidence winner: {contradicting.content[:30]}... over {belief.content[:30]}...")
+                continue
+
+            # Similar confidence - need to hedge/mutate
+            if belief.confidence < 0.9:  # Don't mutate very high confidence beliefs
                 proposal = self._mutation.propose_mutation(
                     belief=belief,
                     contradicting=contradicting,

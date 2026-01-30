@@ -319,6 +319,8 @@ class PerceptionAgent:
             r"\bi['\u2019]ve\b",  # I've
             r"\b(he|she|it|they)\s+(is|are|was|were|has|have)\b",
             r"\b(his|her|their|its)\s+\w+\s+(is|are)\b",
+            r"\bits\s+\w+\b",  # "its cold" - informal contraction without apostrophe
+            r"\b(it['\u2019]s)\s+\w+\b",  # "it's cold"
         ]
         for pat in personal_patterns:
             if re.search(pat, lower):

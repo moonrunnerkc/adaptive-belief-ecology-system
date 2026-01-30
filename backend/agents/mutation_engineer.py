@@ -172,12 +172,22 @@ class MutationEngineerAgent:
     def _create_mutated_belief(
         self, original: Belief, new_content: str, strategy: str
     ) -> Belief:
-        """Build mutated belief with proper lineage."""
+        """Build mutated belief with proper lineage.
+
+        Preserves relative confidence - hedging reduces confidence slightly
+        but doesn't reset to 50%. A belief reinforced to 90% becomes 85%,
+        while one at 80% becomes 75%.
+        """
         now = datetime.now(timezone.utc)
+
+        # Reduce confidence slightly due to uncertainty, but preserve relative strength
+        # A 90% belief with contradiction becomes ~80%, an 80% becomes ~70%
+        confidence_penalty = 0.1 + (original.tension * 0.1)  # higher tension = more penalty
+        new_confidence = max(0.3, original.confidence - confidence_penalty)
 
         return Belief(
             content=new_content,
-            confidence=0.5,  # spec: neutral start
+            confidence=new_confidence,
             origin=OriginMetadata(
                 source=f"mutation:{strategy}",
                 timestamp=now,
