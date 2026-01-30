@@ -86,11 +86,17 @@ class MutationEngineerAgent:
         confidence_threshold: float = settings.confidence_threshold_mutation,
         max_depth: int = settings.max_mutation_depth,
         strategy: str = settings.mutation_strategy,
+        llm_provider=None,
     ):
         self._tension_threshold = tension_threshold
         self._confidence_threshold = confidence_threshold
         self._max_depth = max_depth
         self._strategy = strategy
+        self._llm_provider = llm_provider
+
+    def set_llm_provider(self, provider) -> None:
+        """Configure LLM provider for mutation."""
+        self._llm_provider = provider
 
     def _should_mutate(self, belief: Belief) -> bool:
         """Spec 3.4.7: tension >= threshold AND confidence < threshold."""
@@ -238,6 +244,45 @@ class MutationEngineerAgent:
             strategy=strategy,
             timestamp=datetime.now(timezone.utc),
         )
+
+    async def propose_mutation_llm(
+        self,
+        belief: Belief,
+        contradicting: Optional[Belief] = None,
+        all_beliefs: Optional[list[Belief]] = None,
+        context: Optional[str] = None,
+    ) -> Optional[MutationProposal]:
+        """
+        Propose mutation using LLM. Falls back to rule-based if LLM unavailable.
+        """
+        if not self._should_mutate(belief):
+            return None
+
+        # check depth
+        belief_map = {b.id: b for b in (all_beliefs or [])}
+        belief_map[belief.id] = belief
+        depth = _count_mutation_depth(belief, belief_map)
+
+        if depth >= self._max_depth:
+            logger.warning(f"belief {belief.id} at max mutation depth, skipping")
+            return None
+
+        # try LLM if available
+        if self._llm_provider:
+            result = await self._llm_provider.mutate(belief, contradicting, context)
+            if result and result.mutated_content != belief.content:
+                mutated = self._create_mutated_belief(
+                    belief, result.mutated_content, result.strategy
+                )
+                return MutationProposal(
+                    original_id=belief.id,
+                    mutated_belief=mutated,
+                    strategy=result.strategy,
+                    timestamp=datetime.now(timezone.utc),
+                )
+
+        # fallback to rule-based
+        return self.propose_mutation(belief, contradicting, all_beliefs)
 
     async def process_beliefs(
         self,
