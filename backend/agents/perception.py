@@ -251,7 +251,8 @@ class PerceptionAgent:
                 else:
                     continue
 
-            if not self._has_substance(sent):
+            # For chat, accept any substantive factual statement
+            if not self._has_chat_substance(sent):
                 continue
 
             key = sent.lower()
@@ -265,6 +266,60 @@ class PerceptionAgent:
 
             out.append(sent)
         return out
+
+    def _has_chat_substance(self, text: str) -> bool:
+        """Check if text has substance for conversational context.
+
+        More permissive than _has_substance - accepts personal facts,
+        preferences, opinions, and any declarative statements.
+        """
+        lower = text.lower()
+        words = lower.split()
+
+        # Too short
+        if len(words) < 3:
+            return False
+
+        # Questions aren't beliefs
+        if text.strip().endswith("?"):
+            return False
+
+        # Pure filler
+        filler_only = {"um", "uh", "hmm", "huh", "oh", "ah", "yeah", "yep", "nope", "ok", "okay"}
+        if set(words) <= filler_only:
+            return False
+
+        # Personal fact patterns - "I am", "I have", "My X is", "I like", etc.
+        personal_patterns = [
+            r"\bmy\s+\w+\s+(is|are|was|were)\b",  # My name is, My dogs are
+            r"\bi\s+(am|was|have|had|love|like|prefer|enjoy|hate|dislike|want|need)\b",
+            r"\bi['\u2019]m\b",  # I'm
+            r"\bi['\u2019]ve\b",  # I've
+            r"\b(he|she|it|they)\s+(is|are|was|were|has|have)\b",
+            r"\b(his|her|their|its)\s+\w+\s+(is|are)\b",
+        ]
+        for pat in personal_patterns:
+            if re.search(pat, lower):
+                return True
+
+        # Declarative with state verb - "X is Y", "X has Y"
+        if bool(_STATE_VERBS & set(words)):
+            # Has a subject and predicate (at least 3 words with state verb not at start)
+            for i, w in enumerate(words):
+                if w in _STATE_VERBS and i > 0:
+                    return True
+
+        # Opinion/preference markers
+        opinion_markers = {"think", "believe", "feel", "prefer", "love", "hate", "like", "dislike", "enjoy", "favorite", "best", "worst"}
+        if opinion_markers & set(words):
+            return True
+
+        # Named entities (capitalized words not at sentence start)
+        if any(w[0].isupper() for w in text.split()[1:] if w and w[0].isalpha()):
+            return True
+
+        # Fall back to technical substance check
+        return self._has_substance(text)
 
     def _from_structured(self, text: str) -> list[str]:
         """Extract from logs/tool output with diversity-aware repeat limits."""

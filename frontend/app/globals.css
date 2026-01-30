@@ -45,29 +45,3 @@ body {
   outline: 1px solid #3a3a3a;
   outline-offset: 2px;
 }
-
-.belief-node.mutated {
-  @apply border-belief-mutated bg-belief-mutated/5;
-}
-
-/* Cluster visualization */
-.cluster-container {
-  @apply relative rounded-xl border-2 border-dashed p-4;
-}
-
-/* Tension indicator */
-.tension-bar {
-  @apply h-1 rounded-full;
-}
-
-.tension-bar.low {
-  @apply bg-tension-low;
-}
-
-.tension-bar.medium {
-  @apply bg-tension-medium;
-}
-
-.tension-bar.high {
-  @apply bg-tension-high;
-}

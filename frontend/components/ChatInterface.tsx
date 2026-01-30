@@ -166,9 +166,20 @@ export function ChatInterface() {
         },
       };
 
+      console.log('Chat turn received:', {
+        events: turn.events,
+        created: turn.beliefs_created,
+        reinforced: turn.beliefs_reinforced
+      });
+
       setMessages(prev => [...prev, assistantMessage]);
-      setBeliefEvents(prev => [...turn.events, ...prev].slice(0, 50));
-    } catch {
+      setBeliefEvents(prev => {
+        const updated = [...turn.events, ...prev].slice(0, 50);
+        console.log('Updated beliefEvents:', updated.length);
+        return updated;
+      });
+    } catch (error) {
+      console.error('Chat error:', error);
       setMessages(prev => [...prev, {
         id: `msg-${Date.now()}-error`,
         role: 'assistant',

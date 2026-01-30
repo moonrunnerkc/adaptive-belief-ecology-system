@@ -12,6 +12,8 @@ interface BeliefActivityPanelProps {
 }
 
 export function BeliefActivityPanel({ isOpen, onClose, events }: BeliefActivityPanelProps) {
+  console.log('BeliefActivityPanel render:', { isOpen, eventsCount: events.length, events });
+
   if (!isOpen) return null;
 
   const counts = {
@@ -20,6 +22,8 @@ export function BeliefActivityPanel({ isOpen, onClose, events }: BeliefActivityP
     mutated: events.filter(e => e.event_type === 'mutated').length,
     tensions: events.filter(e => e.event_type === 'tension_changed').length,
   };
+
+  console.log('BeliefActivityPanel counts:', counts);
 
   return (
     <div className="w-80 bg-[#0d0d0d] border-l border-[#1f1f1f] flex flex-col">
