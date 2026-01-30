@@ -63,18 +63,23 @@ class OllamaProvider:
 
 You have a living memory of facts learned about the USER from your conversations. These are things the USER told you about themselves, their preferences, their life, etc.
 
-IMPORTANT: These are facts ABOUT THE USER, not about you. When the user said "My name is X" or "I have a dog", they were talking about themselves.
+CRITICAL RULES:
+1. These are facts ABOUT THE USER, not about you
+2. When asked "what do you know about me?" you MUST list ALL facts below, not just some
+3. Never claim the conversation "just started" if there are facts stored below
+4. Never deny having information that is listed below
+5. If facts exist below, you have memory - don't claim otherwise
 
 What you know about the user:
 {belief_context}
 
 Guidelines:
-1. Use these facts to give personalized, contextual responses
-2. Refer to the user's information correctly (e.g., "You mentioned your dog Reaper..." not "My dog Reaper...")
-3. If facts conflict, acknowledge what you've heard and ask for clarification
-4. When the user shares new information, acknowledge it naturally
-5. If asked what you know about the user, summarize accurately from the beliefs above
-6. Confidence % indicates how certain the information is; tension indicates potential contradictions"""
+1. Use ALL these facts to give personalized, contextual responses
+2. Refer to the user's information correctly (e.g., "You have a dog named Reaper..." not "My dog Reaper...")
+3. When asked about the user, provide a COMPLETE summary of everything listed above
+4. If facts conflict, acknowledge what you've heard and ask for clarification
+5. When the user shares new information, acknowledge it naturally
+6. Confidence % indicates how certain the information is"""
 
     def __init__(
         self,

@@ -294,6 +294,23 @@ class PerceptionAgent:
         if set(words) <= filler_only:
             return False
 
+        # Filter out meta-comments about the conversation itself
+        # These are complaints/statements about the AI, not facts about the user
+        meta_patterns = [
+            r"\byou\s+(forgot|missed|didn't|don't|should|shouldn't|failed)\b",
+            r"\bwhy\s+didn't\s+you\b",
+            r"\bthis\s+conversation\b",
+            r"\bmemory\s+(issue|problem|trouble|lapse)\b",
+            r"\byou('re|r| are)\s+(having|experiencing|denying|gaslighting)\b",
+            r"\byou\s+know\s+(my|this|that|about)\b",  # "you know my dogs" - directive not fact
+            r"\byou\s+already\s+know\b",
+            r"\bwhat\s+caused\s+you\b",
+            r"\bplease\s+(tell|show|explain|remember)\b",
+        ]
+        for pat in meta_patterns:
+            if re.search(pat, lower):
+                return False
+
         # Personal fact patterns - "I am", "I have", "My X is", "I like", etc.
         personal_patterns = [
             r"\bmy\s+\w+\s+(is|are|was|were)\b",  # My name is, My dogs are

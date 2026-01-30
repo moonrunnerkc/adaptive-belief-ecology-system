@@ -36,7 +36,7 @@ class ABESSettings(BaseSettings):
     tension_cap: float = 10.0
 
     # --- Relevance (spec 3.4.5) ---
-    relevance_threshold_min: float = 0.3  # exclude from ranking below this
+    relevance_threshold_min: float = 0.1  # lowered for chat - be more inclusive
 
     # --- Ranking Weights (spec 3.4.6) ---
     ranking_weights: dict[str, float] = Field(

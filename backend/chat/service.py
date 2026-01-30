@@ -238,15 +238,37 @@ class ChatService:
                     ))
                     self._emit_event(turn.events[-1])
 
-        # Step 6: Rank beliefs by relevance
-        context_str = context or message
+        # Step 6: Get beliefs for LLM context
         all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
-        top_beliefs = await self._relevance.get_top_beliefs(
-            beliefs=all_beliefs,
-            context=context_str,
-            top_k=settings.llm_context_beliefs,
-            tension_map=tension_map,
-        )
+
+        # For generic questions about user memory, include ALL beliefs
+        # This handles "what do you know about me?" type questions
+        lower_msg = message.lower()
+        is_memory_query = any(phrase in lower_msg for phrase in [
+            "what do you know",
+            "what you know",
+            "tell me what you know",
+            "tell me about me",
+            "what have you learned",
+            "summarize what you know",
+            "everything you know",
+            "do you remember",
+            "do you know about",
+        ])
+
+        if is_memory_query and all_beliefs:
+            # Include all beliefs for memory queries - don't filter by relevance
+            top_beliefs = sorted(all_beliefs, key=lambda b: b.confidence, reverse=True)[:settings.llm_context_beliefs]
+            logger.info(f"Memory query detected - using all {len(top_beliefs)} beliefs")
+        else:
+            # Normal relevance-based ranking
+            context_str = context or message
+            top_beliefs = await self._relevance.get_top_beliefs(
+                beliefs=all_beliefs,
+                context=context_str,
+                top_k=settings.llm_context_beliefs,
+                tension_map=tension_map,
+            )
 
         # Step 7: Generate LLM response
         llm = get_llm_provider()
