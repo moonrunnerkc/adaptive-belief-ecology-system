@@ -28,7 +28,13 @@ ABES is a **backend-only Python library** (no API, no UI) implementing:
 - No benchmark scenarios defined
 - No metrics collection implemented
 - No configuration files shipped
-- No documentation beyond this README
+
+## Documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, testing, code style
+- [CHANGELOG.md](CHANGELOG.md) — version history, what's built/missing
+- [docs/architecture.md](docs/architecture.md) — system design, data flow, module map
+- [docs/agents.md](docs/agents.md) — detailed reference for all 15 agents
 
 ---
 
