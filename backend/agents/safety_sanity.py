@@ -25,6 +25,7 @@ class ViolationType(str, Enum):
     ClusterOverflow = "cluster_overflow"
     ContentTooLong = "content_too_long"
     DeprecationSpike = "deprecation_spike"
+    SnapshotTooLarge = "snapshot_too_large"
 
 
 class ActionType(str, Enum):
@@ -70,6 +71,7 @@ class SafetySanityAgent:
         max_active_beliefs: int = settings.max_active_beliefs,
         max_beliefs_per_cluster: int = settings.max_beliefs_per_cluster,
         max_content_length: int = settings.max_belief_content_length,
+        max_snapshot_size_mb: int = settings.max_snapshot_size_mb,
         deprecation_spike_threshold: float = 0.3,  # 30% deprecated in one pass
         core_tags: Optional[list[str]] = None,
     ):
@@ -78,6 +80,7 @@ class SafetySanityAgent:
         self._max_active = max_active_beliefs
         self._max_per_cluster = max_beliefs_per_cluster
         self._max_content_length = max_content_length
+        self._max_snapshot_size_bytes = max_snapshot_size_mb * 1024 * 1024
         self._deprecation_spike_threshold = deprecation_spike_threshold
         self._core_tags = set(core_tags or ["core_value", "identity", "essential"])
 
@@ -280,6 +283,22 @@ class SafetySanityAgent:
                 metadata={"ratio": ratio, "count": to_deprecate_count},
             )
 
+        return None
+
+    def check_snapshot_size(self, compressed_bytes: int) -> Optional[SafetyViolation]:
+        """
+        Check if a snapshot exceeds max size limit.
+        """
+        if compressed_bytes > self._max_snapshot_size_bytes:
+            size_mb = compressed_bytes / (1024 * 1024)
+            max_mb = self._max_snapshot_size_bytes / (1024 * 1024)
+            return self._record_violation(
+                ViolationType.SnapshotTooLarge,
+                "high",
+                f"snapshot size {size_mb:.1f}MB exceeds limit {max_mb:.0f}MB",
+                action=ActionType.Block,
+                metadata={"size_bytes": compressed_bytes, "limit_bytes": self._max_snapshot_size_bytes},
+            )
         return None
 
     def is_mutation_vetoed(self, belief_id: UUID) -> bool:

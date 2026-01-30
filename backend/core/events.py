@@ -112,6 +112,37 @@ class MutationProposedEvent(BaseEvent):
         )
 
 
+@dataclass(init=False)
+class SafetyLimitExceededEvent(BaseEvent):
+    """A safety limit was exceeded."""
+
+    limit_type: str
+    current_value: float
+    max_value: float
+    action_taken: str  # "blocked", "warned", "pruned"
+    affected_ids: List[UUID]
+
+    def __init__(
+        self,
+        limit_type: str,
+        current_value: float,
+        max_value: float,
+        action_taken: str,
+        iteration: int,
+        affected_ids: List[UUID] = None,
+    ):
+        super().__init__(
+            type="safety_limit_exceeded",
+            timestamp=utcnow(),
+            iteration=iteration,
+        )
+        self.limit_type = limit_type
+        self.current_value = current_value
+        self.max_value = max_value
+        self.action_taken = action_taken
+        self.affected_ids = affected_ids or []
+
+
 # type alias for event logs
 EventLog = List[BaseEvent]
 
@@ -123,5 +154,6 @@ __all__ = [
     "BeliefDecayedEvent",
     "ContradictionDetectedEvent",
     "MutationProposedEvent",
+    "SafetyLimitExceededEvent",
     "EventLog",
 ]
