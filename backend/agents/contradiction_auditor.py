@@ -47,6 +47,61 @@ def _stable_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _extract_numbers(text: str) -> list[tuple[float, str]]:
+    """Extract numbers with their context (unit hints).
+
+    Returns list of (number, context) tuples.
+    Example: "40 degrees" -> [(40.0, "degrees")]
+    """
+    # Match numbers with optional units
+    pattern = r'(\d+(?:\.\d+)?)\s*(%|degrees?|°|F|C|mph|dollars?|\$|minutes?|hours?|days?|years?|feet|ft|miles?|lbs?|kg)?'
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    results = []
+    for num_str, unit in matches:
+        try:
+            num = float(num_str)
+            results.append((num, unit.lower() if unit else ""))
+        except ValueError:
+            pass
+    return results
+
+
+def _has_numeric_conflict(text1: str, text2: str, similarity: float) -> bool:
+    """Detect numeric contradictions in semantically similar statements.
+
+    If two statements are about the same topic (high embedding similarity)
+    but have significantly different numbers, they likely contradict.
+
+    Example: "it was 40 degrees" vs "it was 70 degrees" - same topic, different values.
+    """
+    if similarity < 0.5:  # not similar enough to be about the same thing
+        return False
+
+    nums1 = _extract_numbers(text1)
+    nums2 = _extract_numbers(text2)
+
+    if not nums1 or not nums2:
+        return False
+
+    # Check if any numbers with same/similar units differ significantly
+    for n1, u1 in nums1:
+        for n2, u2 in nums2:
+            # Units should match (or both be empty)
+            if u1 != u2 and u1 and u2:
+                continue
+
+            # Check if numbers differ significantly (>20% difference)
+            if n1 == 0 and n2 == 0:
+                continue
+            max_val = max(abs(n1), abs(n2))
+            if max_val > 0:
+                diff_pct = abs(n1 - n2) / max_val
+                if diff_pct > 0.2:  # more than 20% different
+                    return True
+
+    return False
+
+
 def _contains_word(text: str, word: str) -> bool:
     # simple word boundary check - escape in case word has regex chars
     return re.search(rf"\b{re.escape(word)}\b", text) is not None
@@ -243,7 +298,13 @@ class ContradictionAuditorAgent:
                 similarity = float(np.dot(embeddings[i], embeddings[j]) / denom)
 
                 if similarity > similarity_threshold:
-                    if _is_likely_negation(b1.content, b2.content):
+                    # Check for contradiction: negation/antonyms OR numeric conflict
+                    is_contradiction = (
+                        _is_likely_negation(b1.content, b2.content) or
+                        _has_numeric_conflict(b1.content, b2.content, similarity)
+                    )
+
+                    if is_contradiction:
                         tension_scores[b1.id] += similarity
                         tension_scores[b2.id] += similarity
                         # Track top contradictor for each

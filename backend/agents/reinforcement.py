@@ -3,6 +3,7 @@
 ReinforcementAgent - boosts confidence of beliefs relevant to incoming context.
 """
 
+import re
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -23,6 +24,44 @@ COOLDOWN_SECONDS = 10  # lowered for interactive chat
 
 # max confidence a belief can reach via reinforcement alone
 MAX_REINFORCED_CONFIDENCE = 0.95
+
+
+def _extract_numbers(text: str) -> list[tuple[float, str]]:
+    """Extract numbers with their context (unit hints)."""
+    pattern = r'(\d+(?:\.\d+)?)\s*(%|degrees?|°|F|C|mph|dollars?|\$|minutes?|hours?|days?|years?|feet|ft|miles?|lbs?|kg)?'
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    results = []
+    for num_str, unit in matches:
+        try:
+            num = float(num_str)
+            results.append((num, unit.lower() if unit else ""))
+        except ValueError:
+            pass
+    return results
+
+
+def _has_numeric_conflict(text1: str, text2: str) -> bool:
+    """Check if two texts have conflicting numeric values."""
+    nums1 = _extract_numbers(text1)
+    nums2 = _extract_numbers(text2)
+
+    if not nums1 or not nums2:
+        return False
+
+    for n1, u1 in nums1:
+        for n2, u2 in nums2:
+            # Units should match (or both be empty)
+            if u1 != u2 and u1 and u2:
+                continue
+            # Check if numbers differ significantly (>20% difference)
+            if n1 == 0 and n2 == 0:
+                continue
+            max_val = max(abs(n1), abs(n2))
+            if max_val > 0:
+                diff_pct = abs(n1 - n2) / max_val
+                if diff_pct > 0.2:
+                    return True
+    return False
 
 
 def _cosine_batch(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
@@ -125,6 +164,11 @@ class ReinforcementAgent:
 
             # skip if already at ceiling
             if belief.confidence >= MAX_REINFORCED_CONFIDENCE:
+                continue
+
+            # CRITICAL: skip if incoming has conflicting numeric value
+            # e.g., don't reinforce "40 degrees" when incoming says "70 degrees"
+            if _has_numeric_conflict(incoming, belief.content):
                 continue
 
             # boost confidence, respecting ceiling
