@@ -269,29 +269,54 @@ d4dd4f5c4a777eac6d2954cd25030f74c9a4e7f27275f1c5e19fa21795d247c5  results/decay_
 
 ## Recent Fixes (2026-01-30)
 
-All tests now pass. Here's what was fixed:
+All 638 tests passing. Here's what was fixed and added:
+
+### Bug Fixes
 
 1. **Mutation engineer confidence calculation**
-   - Updated test to match intended design: mutated beliefs preserve relative confidence with a tension-based penalty
-   - Original belief at 0.4 confidence with 0.7 tension becomes 0.3 (floor value)
-   - This preserves the relative strength of beliefs rather than resetting to neutral
+   - Mutated beliefs preserve relative confidence with tension-based penalty
+   - Formula: `original - 0.1 - (tension * 0.1)`, floor 0.3
 
 2. **RL environment action decoding**
    - Fixed boundary condition in test assertion (> changed to >=)
-   - Positive actions correctly increase parameters to their expected values
 
 3. **Circular import in storage/core modules**
    - Moved imports to function level with TYPE_CHECKING guard
-   - Direct script imports now work without errors
 
 4. **ContradictionDetectedEvent enriched**
-   - Added contradicting_belief_id, belief_content, contradicting_content, similarity_score fields
-   - Events now carry full context for debugging and UI display
+   - Added: contradicting_belief_id, belief_content, contradicting_content, similarity_score
 
-### Known Issues Being Worked On
+### New Features
+
+5. **GitHub Actions CI Pipeline** (`.github/workflows/ci.yml`)
+   - Runs pytest on push/PR to main
+   - Includes lint checks with ruff
+
+6. **SQLite Persistence** (`STORAGE_BACKEND=sqlite`)
+   - Beliefs survive server restarts
+   - Async support via aiosqlite
+
+7. **Session Isolation** (`session_id` on beliefs)
+   - Multi-user support ready
+   - Filter beliefs by session
+
+8. **Multiple LLM Providers**
+   - Ollama (default), OpenAI, Anthropic
+   - Set via `LLM_PROVIDER` env var
+
+9. **LLM Fallback Mode**
+   - If LLM fails, returns raw beliefs
+   - Set `LLM_FALLBACK_ENABLED=true`
+
+10. **Configurable Decay Profiles**
+    - `DECAY_PROFILE`: aggressive (0.99), moderate (0.995), conservative (0.999), persistent (0.9999)
+
+11. **Configurable Embedding Model**
+    - `EMBEDDING_MODEL` env var (default: all-MiniLM-L6-v2)
+
+### Remaining Known Issues
 
 - Contradiction detection uses embeddings and antonym lists, not full semantic understanding
-- The decay factor default (0.995) might be too aggressive for some use cases
 
 ---
 
