@@ -36,9 +36,13 @@ class InMemoryBeliefStore(BeliefStoreABC):
         limit: int = 100,
         offset: int = 0,
         session_id: Optional[str] = None,
+        user_id: Optional[UUID] = None,
     ) -> List[Belief]:
         results = []
         for b in self._beliefs.values():
+            # user_id is the ceiling - never cross-user
+            if user_id is not None and b.user_id != user_id:
+                continue
             if status and b.status != status:
                 continue
             if cluster_id and b.cluster_id != cluster_id:

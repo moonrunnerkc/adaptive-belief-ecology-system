@@ -63,6 +63,7 @@ class BeliefCreatorAgent:
         origin: OriginMetadata,
         store: BeliefStoreABC,
         user_id: Optional[UUID] = None,
+        session_id: Optional[str] = None,
     ) -> List[Belief]:
         """Embed, dedupe, persist. Returns list of created beliefs."""
         # filter junk early
@@ -127,6 +128,7 @@ class BeliefCreatorAgent:
                 tags=tags,
                 status=BeliefStatus.Active,
                 user_id=user_id,
+                session_id=session_id,
             )
 
             created_belief = await store.create(belief)

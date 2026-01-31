@@ -156,6 +156,7 @@ class ChatService:
                 origin=origin,
                 store=self.belief_store,
                 user_id=user_id,  # Associate with user
+                session_id=str(session.id),  # Track which session created this
             )
 
             for belief in created_beliefs:
@@ -170,8 +171,10 @@ class ChatService:
                 ))
                 self._emit_event(turn.events[-1])
 
-        # Step 3: Reinforce existing beliefs
-        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        # Step 3: Reinforce existing beliefs (user-scoped only)
+        all_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=1000, user_id=user_id
+        )
         reinforced_beliefs = await self._reinforcement.reinforce(
             incoming=message,
             beliefs=all_beliefs,
@@ -189,8 +192,10 @@ class ChatService:
             ))
             self._emit_event(turn.events[-1])
 
-        # Step 4: Apply decay
-        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        # Step 4: Apply decay (user-scoped)
+        all_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=1000, user_id=user_id
+        )
         decay_events, modified_beliefs = await self._decay.process_beliefs(all_beliefs)
 
         for belief in modified_beliefs:
@@ -207,8 +212,10 @@ class ChatService:
                 ))
                 self._emit_event(turn.events[-1])
 
-        # Step 5: Compute tensions
-        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        # Step 5: Compute tensions (user-scoped)
+        all_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=1000, user_id=user_id
+        )
         contradiction_events = await self._auditor.audit(all_beliefs, store=self.belief_store)
 
         # Build tension map from events
@@ -243,7 +250,9 @@ class ChatService:
 
         # Step 6: Mutation - only evolve when there's genuine ambiguity
         # If one belief is clearly more confident, don't mutate - let it "win"
-        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        all_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=1000, user_id=user_id
+        )
 
         # Group beliefs by high tension (potential contradictions)
         high_tension_beliefs = [b for b in all_beliefs if b.tension >= 0.5]
@@ -324,8 +333,23 @@ class ChatService:
                     self._emit_event(turn.events[-1])
                     logger.info(f"Mutated belief: {belief.content[:30]}... -> {mutated.content[:30]}...")
 
-        # Step 7: Get beliefs for LLM context
-        all_beliefs = await self.belief_store.list(status=BeliefStatus.Active, limit=1000)
+        # Step 7: Get beliefs for LLM context (hierarchical: session first, then user)
+        # IMPORTANT: user_id is the ceiling - never cross-user
+
+        # First, get session-specific beliefs (this conversation)
+        session_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=500, user_id=user_id,
+            session_id=str(session.id) if session else None
+        )
+
+        # Then get all user beliefs (including other sessions)
+        all_user_beliefs = await self.belief_store.list(
+            status=BeliefStatus.Active, limit=1000, user_id=user_id
+        )
+
+        # Mark session beliefs for the LLM to distinguish
+        for b in session_beliefs:
+            b.tags = list(set(b.tags) | {"this_session"})
 
         # For generic questions about user memory, include ALL beliefs
         # This handles "what do you know about me?" type questions
@@ -342,15 +366,15 @@ class ChatService:
             "do you know about",
         ])
 
-        if is_memory_query and all_beliefs:
+        if is_memory_query and all_user_beliefs:
             # Include all beliefs for memory queries - don't filter by relevance
-            top_beliefs = sorted(all_beliefs, key=lambda b: b.confidence, reverse=True)[:settings.llm_context_beliefs]
+            top_beliefs = sorted(all_user_beliefs, key=lambda b: b.confidence, reverse=True)[:settings.llm_context_beliefs]
             logger.info(f"Memory query detected - using all {len(top_beliefs)} beliefs")
         else:
             # Normal relevance-based ranking
             context_str = context or message
             top_beliefs = await self._relevance.get_top_beliefs(
-                beliefs=all_beliefs,
+                beliefs=all_user_beliefs,
                 context=context_str,
                 top_k=settings.llm_context_beliefs,
                 tension_map=tension_map,

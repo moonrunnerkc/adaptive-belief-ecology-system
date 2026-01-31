@@ -177,12 +177,18 @@ class SQLiteBeliefStore(BeliefStoreABC):
         limit: int = 100,
         offset: int = 0,
         session_id: Optional[str] = None,
+        user_id: Optional[UUID] = None,
     ) -> List[Belief]:
-        """List beliefs with filters."""
+        """List beliefs with filters. user_id is the ceiling - never cross-user."""
         db = await self._get_db()
 
         query = "SELECT * FROM beliefs WHERE 1=1"
         params = []
+
+        # user_id is the ceiling - always filter if provided
+        if user_id:
+            query += " AND user_id = ?"
+            params.append(str(user_id))
 
         if status:
             query += " AND status = ?"

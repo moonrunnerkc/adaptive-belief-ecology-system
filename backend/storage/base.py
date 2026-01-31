@@ -40,10 +40,13 @@ class BeliefStoreABC(ABC):
         limit: int = 100,
         offset: int = 0,
         session_id: Optional[str] = None,
+        user_id: Optional[UUID] = None,
     ) -> List[Belief]:
         """
         List beliefs with filters. By convention, implementations sort by
         updated_at desc, but interface does not enforce this.
+
+        user_id is the ceiling - NEVER return beliefs from other users.
         """
         ...
 

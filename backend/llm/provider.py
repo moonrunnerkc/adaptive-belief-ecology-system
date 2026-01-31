@@ -72,10 +72,12 @@ You have a living memory of facts learned about the USER from your conversations
 CRITICAL RULES:
 1. These are facts ABOUT THE USER, not about you
 2. When asked "what do you know about me?" you MUST list ALL facts below, not just some
-3. Never claim the conversation "just started" if there are facts stored below
-4. Never deny having information that is listed below
-5. If facts exist below, you have memory - don't claim otherwise
-6. When asked about yourself, explain you are ABES with evolving belief-based memory
+3. Facts labeled "FROM THIS CONVERSATION" were just told to you now
+4. Facts labeled "FROM PREVIOUS CONVERSATIONS" are from your long-term memory
+5. Never say "you mentioned before" for facts from THIS CONVERSATION - they're new
+6. DO say "you mentioned before" only for facts from PREVIOUS CONVERSATIONS
+7. If facts exist below, you have memory - don't claim otherwise
+8. When asked about yourself, explain you are ABES with evolving belief-based memory
 
 What you know about the user:
 {belief_context}
@@ -84,7 +86,7 @@ HANDLING CONFLICTING INFORMATION:
 - Each fact has a confidence percentage based on how often it was mentioned
 - If two facts conflict (e.g., "it's warm" vs "it's cold"), prefer the one with HIGHER confidence
 - Higher confidence = mentioned more times = more likely to be current/accurate
-- When reporting conflicting facts, say something like: "You've mentioned X several times (90% confident), though you also said Y once (75% confident). Based on the stronger evidence, I believe X."
+- When reporting conflicting facts from THIS CONVERSATION, ask for clarification
 - Items marked with ⚠️ may conflict with other information
 
 Guidelines:
@@ -116,7 +118,10 @@ Guidelines:
             self._client = None
 
     def _format_belief_context(self, beliefs: list[Belief], max_beliefs: int = 15) -> str:
-        """Format beliefs into context string for system prompt."""
+        """Format beliefs into context string for system prompt.
+
+        Separates session beliefs (this conversation) from long-term memory.
+        """
         if not beliefs:
             return "No information learned about the user yet."
 
@@ -127,13 +132,31 @@ Guidelines:
             reverse=True,
         )[:max_beliefs]
 
+        # Separate session beliefs from long-term memory
+        session_beliefs = [b for b in sorted_beliefs if "this_session" in b.tags]
+        memory_beliefs = [b for b in sorted_beliefs if "this_session" not in b.tags]
+
         lines = []
-        for i, b in enumerate(sorted_beliefs, 1):
-            conf_pct = int(b.confidence * 100)
-            tension_indicator = " ⚠️ may conflict with other info" if b.tension > 0.3 else ""
-            # Transform first-person to second-person for clarity
-            content = self._transform_to_user_perspective(b.content)
-            lines.append(f"- {content} ({conf_pct}% confident{tension_indicator})")
+
+        if session_beliefs:
+            lines.append("FROM THIS CONVERSATION:")
+            for b in session_beliefs:
+                conf_pct = int(b.confidence * 100)
+                tension_indicator = " ⚠️" if b.tension > 0.3 else ""
+                content = self._transform_to_user_perspective(b.content)
+                lines.append(f"  - {content} ({conf_pct}%{tension_indicator})")
+
+        if memory_beliefs:
+            if session_beliefs:
+                lines.append("")
+            lines.append("FROM PREVIOUS CONVERSATIONS:")
+            for b in memory_beliefs:
+                conf_pct = int(b.confidence * 100)
+                tension_indicator = " ⚠️" if b.tension > 0.3 else ""
+                content = self._transform_to_user_perspective(b.content)
+                lines.append(f"  - {content} ({conf_pct}%{tension_indicator})")
+
+        return "\n".join(lines)
 
         return "\n".join(lines)
 
