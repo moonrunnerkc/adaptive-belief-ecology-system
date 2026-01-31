@@ -338,10 +338,6 @@ All 638 tests passing. Here's what was fixed and added:
     - Protected routes requiring authentication
     - Beliefs associated with user accounts
 
-### Remaining Known Issues
-
-- Contradiction detection uses semantic rule-based detection (negation, modality, quantifiers, numerics, entity attributes) with embedding similarity as a gate. See [Contradiction Detection](#contradiction-detection) for benchmarks.
-
 ---
 
 ## Authentication
