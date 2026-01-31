@@ -120,6 +120,62 @@ class ChatService:
         self._sessions[session.id] = session
         return session
 
+    async def _validate_and_correct_response(
+        self,
+        response: str,
+        beliefs: list,
+        llm,
+        messages: list,
+        max_retries: int = 1,
+    ) -> str:
+        """
+        Validate LLM response against beliefs and correct if needed.
+
+        Returns original response if valid, or corrected response if contradictions found.
+        """
+        from .response_validator import validate_response, get_correction_prompt
+
+        validation = validate_response(response, beliefs)
+
+        if validation.is_valid:
+            return response
+
+        logger.warning(
+            f"Response validation failed: {len(validation.contradictions)} contradictions found"
+        )
+
+        # try to correct
+        for attempt in range(max_retries):
+            correction_prompt = get_correction_prompt(
+                response, validation.contradictions, beliefs
+            )
+
+            # append correction request
+            corrected_messages = messages + [
+                ChatMessage(role="assistant", content=response),
+                ChatMessage(role="user", content=correction_prompt),
+            ]
+
+            corrected = await llm.chat(
+                messages=corrected_messages,
+                beliefs=beliefs,
+                temperature=0.3,  # lower temp for correction
+                max_tokens=settings.llm_max_tokens,
+            )
+
+            # validate corrected response
+            revalidation = validate_response(corrected.content, beliefs)
+
+            if revalidation.is_valid:
+                logger.info("Response corrected successfully")
+                return corrected.content
+
+            logger.warning(f"Correction attempt {attempt + 1} still has contradictions")
+            response = corrected.content
+
+        # give up - return last attempt with warning prefix
+        return f"[Note: Response may contain inaccuracies]\n\n{response}"
+
     async def process_message(
         self,
         message: str,
@@ -395,7 +451,15 @@ class ChatService:
             max_tokens=settings.llm_max_tokens,
         )
 
-        turn.assistant_message = response.content
+        # Step 8: Validate response against beliefs (catch hallucinations)
+        validated_response = await self._validate_and_correct_response(
+            response.content,
+            top_beliefs,
+            llm,
+            messages,
+        )
+
+        turn.assistant_message = validated_response
         turn.beliefs_used = [b.id for b in top_beliefs]
         turn.duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 

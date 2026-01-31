@@ -14,6 +14,12 @@ from .semantic_contradiction import (
     Proposition,
     RuleBasedContradictionDetector,
 )
+from .nli_detector import (
+    check_contradiction_nli,
+    classify_nli,
+    is_nli_available,
+    NLIResult,
+)
 from .snapshot_compression import compress_snapshot, decompress_snapshot
 from .snapshot_logger import log_snapshot
 
@@ -33,4 +39,8 @@ __all__ = [
     "ContradictionResult",
     "Proposition",
     "RuleBasedContradictionDetector",
+    "check_contradiction_nli",
+    "classify_nli",
+    "is_nli_available",
+    "NLIResult",
 ]

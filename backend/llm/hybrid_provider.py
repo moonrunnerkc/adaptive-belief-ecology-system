@@ -6,60 +6,20 @@ Uses local LLM for belief-grounded responses and online LLM only when:
 - Query requires real-time/live information
 - Query needs current events, weather, traffic, news
 - Query explicitly asks to "look up" or "search for" something
+
+Routing is done via zero-shot classification with regex fallback.
 """
 
 import logging
-import re
 from typing import AsyncIterator, List, Optional
 
 from ..core.config import settings
 from ..core.models.belief import Belief
 from .openai_provider import OpenAIProvider
 from .provider import ChatMessage, ChatResponse, OllamaProvider, StreamChunk
+from .query_classifier import needs_real_time_info, classify_query
 
 logger = logging.getLogger(__name__)
-
-
-# Patterns that indicate a query needs real-time/live information
-_LIVE_INFO_PATTERNS = [
-    # Time-sensitive queries
-    r"\b(right now|currently|today|tonight|this morning|this evening)\b.*\b(weather|traffic|news|stock|price)\b",
-    r"\b(weather|traffic|news|stock|price).*\b(right now|currently|today|tonight)\b",
-    r"\bwhat('s| is) the (weather|traffic|news|time)\b",
-    r"\bhow('s| is) the (weather|traffic)\b",
-    r"\b(current|live|real-time|latest)\s+(weather|traffic|news|stock|price|score)\b",
-
-    # Location + current state
-    r"\b(in|at|near)\s+\w+.*\b(right now|currently|today)\b",
-
-    # Explicit search/lookup requests
-    r"\b(look up|search for|find out|check|google)\b",
-    r"\bcan you (find|search|look|check)\b",
-
-    # News and events
-    r"\b(latest|recent|breaking|current)\s+(news|events|updates|headlines)\b",
-    r"\bwhat('s| is) happening\b",
-    r"\bwhat happened (today|yesterday|this week)\b",
-
-    # Sports scores
-    r"\b(score|result)s?\s+(of|for|in)\b.*\b(game|match)\b",
-    r"\bwho (won|is winning|scored)\b",
-
-    # Stock/crypto prices
-    r"\b(stock|share|crypto|bitcoin|eth)\s+price\b",
-    r"\bhow much is\s+\w+\s+(worth|trading)\b",
-
-    # Time queries for other locations
-    r"\bwhat time is it in\b",
-]
-
-# Compile patterns for efficiency
-_LIVE_PATTERNS_COMPILED = [re.compile(p, re.IGNORECASE) for p in _LIVE_INFO_PATTERNS]
-
-
-def _needs_live_info(message: str) -> bool:
-    """Check if a message needs real-time/live information."""
-    return any(pat.search(message) for pat in _LIVE_PATTERNS_COMPILED)
 
 
 class HybridProvider:
@@ -121,13 +81,15 @@ IMPORTANT:
         """Route chat to appropriate provider based on query type."""
         last_message = self._get_last_user_message(messages)
 
-        # Check if query needs live info
-        if self._openai_available and _needs_live_info(last_message):
-            logger.info(f"Routing to OpenAI for live info query: {last_message[:50]}...")
+        # Classify query using zero-shot classification
+        route_type, confidence = classify_query(last_message)
+
+        if self._openai_available and route_type == "real-time" and confidence >= 0.6:
+            logger.info(f"Routing to OpenAI (conf={confidence:.2f}): {last_message[:50]}...")
             return await self._openai.chat(messages, beliefs, temperature, max_tokens)
 
-        # Default to local Ollama
-        logger.debug(f"Routing to Ollama for standard query")
+        # Default to local Ollama for belief-grounded and general queries
+        logger.debug(f"Routing to Ollama ({route_type}, conf={confidence:.2f})")
         return await self._ollama.chat(messages, beliefs, temperature, max_tokens)
 
     async def chat_stream(
@@ -140,8 +102,10 @@ IMPORTANT:
         """Route streaming chat to appropriate provider."""
         last_message = self._get_last_user_message(messages)
 
-        if self._openai_available and _needs_live_info(last_message):
-            logger.info(f"Routing stream to OpenAI for live info query")
+        route_type, confidence = classify_query(last_message)
+
+        if self._openai_available and route_type == "real-time" and confidence >= 0.6:
+            logger.info(f"Routing stream to OpenAI (conf={confidence:.2f})")
             async for chunk in self._openai.chat_stream(messages, beliefs, temperature, max_tokens):
                 yield chunk
         else:
@@ -158,4 +122,4 @@ IMPORTANT:
         await self._openai.close()
 
 
-__all__ = ["HybridProvider", "_needs_live_info"]
+__all__ = ["HybridProvider", "classify_query", "needs_real_time_info"]

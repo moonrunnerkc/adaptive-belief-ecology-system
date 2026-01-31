@@ -10,6 +10,7 @@ dependencies = [
     "msgpack>=1.0",
     "sentence-transformers>=5.0",
     "spacy>=3.8",
+    "transformers>=4.40",
 ]
 
 [project.optional-dependencies]

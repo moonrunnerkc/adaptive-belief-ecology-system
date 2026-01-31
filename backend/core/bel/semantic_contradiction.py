@@ -2,6 +2,7 @@
 """
 Semantic contradiction detection using NLP parsing and rule-based analysis.
 Extracts propositions from text and applies structured rules to detect conflicts.
+Falls back to NLI transformer model when rule-based detection is uncertain.
 """
 
 import logging
@@ -31,6 +32,18 @@ def _get_nlp():
     except Exception as e:
         logger.warning(f"spacy unavailable, falling back to legacy: {e}")
         _nlp_available = False
+        return None
+
+
+def _try_nli_fallback(text_a: str, text_b: str) -> tuple[bool, float] | None:
+    """Try NLI model for contradiction detection. Returns (is_contradiction, confidence)."""
+    try:
+        from backend.core.bel.nli_detector import check_contradiction_nli
+        return check_contradiction_nli(text_a, text_b)
+    except ImportError:
+        return None
+    except Exception as e:
+        logger.debug(f"NLI fallback failed: {e}")
         return None
 
 
@@ -997,6 +1010,32 @@ class RuleBasedContradictionDetector:
             result.label = "not_contradiction"
         else:
             result.label = "unknown"
+
+        # NLI fallback: if unknown or low confidence, try NLI model
+        if result.label == "unknown" or (result.label == "contradiction" and confidence < 0.6):
+            nli_result = _try_nli_fallback(text_a, text_b)
+            if nli_result is not None:
+                is_contra, nli_conf = nli_result
+                if is_contra and nli_conf >= 0.7:
+                    # NLI says contradiction with high confidence
+                    result.label = "contradiction"
+                    # blend confidences - NLI should boost, not replace
+                    result.confidence = round(min(1.0, confidence + nli_conf * 0.4), 4)
+                    result.reason_codes.append("NLI_MODEL")
+                    result.rule_trace.append({
+                        "rule_code": "NLI_MODEL",
+                        "triggered": True,
+                        "prop_a_index": -1,
+                        "prop_b_index": -1,
+                        "matched_fields": ["nli_inference"],
+                        "conflict_detail": {"nli_confidence": nli_conf},
+                        "contribution": nli_conf * 0.5
+                    })
+                elif not is_contra and nli_conf >= 0.8:
+                    # NLI says NOT contradiction with high confidence
+                    if result.label == "unknown":
+                        result.label = "not_contradiction"
+                        result.confidence = round(nli_conf * 0.3, 4)
 
         return result
 
