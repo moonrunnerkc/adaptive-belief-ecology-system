@@ -53,8 +53,17 @@ htmlcov/
 # Data and experiments
 data/raw/
 data/processed/
+data/*.db
+data/*.sqlite
+data/users.json
 experiments/results/
 experiments/logs/
+
+# User data (NEVER commit)
+*.users.json
+users.db
+abes_users.db
+abes.db
 
 # OS
 .DS_Store
