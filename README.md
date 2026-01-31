@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-638%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-672%20passing-brightgreen.svg)]()
 
 A research platform for belief ecology: treating beliefs as living, evolving entities rather than static memory entries.
 
@@ -60,7 +60,7 @@ The Activity panel on the right shows belief events as they happen.
 | Perception agent (text to belief candidates) | [backend/agents/perception.py](backend/agents/perception.py) | [test_perception.py](tests/agents/test_perception.py) |
 | Reinforcement agent (boost on similar evidence) | [backend/agents/reinforcement.py](backend/agents/reinforcement.py) | [test_reinforcement.py](tests/agents/test_reinforcement.py) |
 | Decay controller (time-based confidence reduction) | [backend/agents/decay_controller.py](backend/agents/decay_controller.py) | [test_decay_controller.py](tests/agents/test_decay_controller.py) |
-| Contradiction auditor (embedding + antonym detection) | [backend/agents/contradiction_auditor.py](backend/agents/contradiction_auditor.py) | [test_contradiction_auditor.py](tests/agents/test_contradiction_auditor.py) |
+| Contradiction auditor (semantic rules + embedding gate) | [backend/agents/contradiction_auditor.py](backend/agents/contradiction_auditor.py) | [test_contradiction_auditor.py](tests/agents/test_contradiction_auditor.py) |
 | Mutation engineer (conflict-triggered belief modification) | [backend/agents/mutation_engineer.py](backend/agents/mutation_engineer.py) | [test_mutation_engineer.py](tests/agents/test_mutation_engineer.py) |
 | Semantic clustering | [backend/core/bel/clustering.py](backend/core/bel/clustering.py) | [test_clustering.py](tests/core/test_clustering.py) |
 | RL environment (15D state, 7D action) | [backend/rl/environment.py](backend/rl/environment.py) | [test_environment.py](tests/rl/test_environment.py) |
@@ -204,7 +204,7 @@ We ran a full verification suite to make sure everything works as claimed. Here'
 PYTHONPATH=$PWD pytest tests/ -q
 ```
 
-Current status: **638 passed, 0 failed**
+Current status: **672 passed, 0 failed**
 
 | Suite | Files | What it covers |
 |-------|-------|----------------|
@@ -254,6 +254,11 @@ All experiments passed. Here's what each one proves:
 - At 0.999: 4 beliefs retained, 9 dropped
 - At 0.995 and below: 0 beliefs retained, 13 dropped
 - This proves: decay factor significantly affects retention. Default of 0.995 is aggressive.
+
+**Contradiction Benchmark** ([results/contradiction_benchmark.json](results/contradiction_benchmark.json))
+- Tested semantic rule-based detector against 70-case curated corpus
+- Corpus inspired by SNLI, MultiNLI, SICK benchmarks (Bowman 2015, Williams 2018, Marelli 2014)
+- See [Contradiction Detection](#contradiction-detection) section for detailed results
 
 ### Evidence File Hashes
 
@@ -335,7 +340,7 @@ All 638 tests passing. Here's what was fixed and added:
 
 ### Remaining Known Issues
 
-- Contradiction detection uses embeddings, antonym lists, and numeric comparison - not full semantic understanding
+- Contradiction detection uses semantic rule-based detection (negation, modality, quantifiers, numerics, entity attributes) with embedding similarity as a gate. See [Contradiction Detection](#contradiction-detection) for benchmarks.
 
 ---
 
@@ -372,9 +377,81 @@ User accounts are stored in `data/users.db` (SQLite). This file is in `.gitignor
 
 ---
 
+## Contradiction Detection
+
+The contradiction detection system uses semantic rule-based analysis with embedding similarity as a gate. When two beliefs have high embedding similarity, the semantic detector analyzes them for logical conflicts.
+
+### Architecture
+
+```
+Embedding Similarity Gate (threshold 0.5)
+         │
+         ▼
+   Semantic Parser (spaCy)
+         │
+    ┌────┴────┐
+    │         │
+Proposition A  Proposition B
+    │         │
+    └────┬────┘
+         ▼
+   14 Contradiction Rules
+         │
+    ┌────┴────────────────────────────────────┐
+    │  NEG_DIRECT         QUANT_UNIVERSAL_VS_NONE    │
+    │  NEG_PRED_FLIP      QUANT_UNIVERSAL_VS_EXIST   │
+    │  MOD_NECESSARY_VS_IMPOSSIBLE  ENT_ATTRIBUTE    │
+    │  MOD_FACTUAL_VS_POSSIBLE      ENT_EXCLUSIVE    │
+    │  TEMP_SAME_ANCHOR   NUM_VALUE_CONFLICT         │
+    │  NUM_UNIT_CONVERTED NUM_COMPARATOR_CONFLICT    │
+    └─────────────────────────────────────────┘
+         │
+         ▼
+   Confidence Score + Reason Codes
+```
+
+### Benchmark Results
+
+Tested against 70-case curated corpus inspired by:
+- **SNLI** (Stanford Natural Language Inference) - Bowman et al. 2015
+- **MultiNLI** (Multi-Genre NLI) - Williams et al. 2018
+- **SICK** (Sentences Involving Compositional Knowledge) - Marelli et al. 2014
+
+| Category | Legacy Detector | Semantic Detector | Δ |
+|----------|-----------------|-------------------|---|
+| Quantifiers | 54.5% | **81.8%** | +27.3% |
+| Numeric/Units | 66.7% | **83.3%** | +16.7% |
+| Entity/Attribute | 76.9% | **84.6%** | +7.7% |
+| Negation | 91.7% | 83.3% | -8.3% |
+| Modality | 72.7% | 45.5% | -27.3% |
+| Temporal | 63.6% | 36.4% | -27.3% |
+
+**Overall**: Legacy 71.4% → Semantic 70.0%
+
+The semantic detector excels where explicit rules exist (quantifiers, numerics, entity attributes) but struggles where spaCy parsing is ambiguous (modality, temporal). The system falls back to legacy heuristics when semantic parsing fails.
+
+### Source Files
+
+| File | Description |
+|------|-------------|
+| [backend/core/bel/semantic_contradiction.py](backend/core/bel/semantic_contradiction.py) | Semantic detector implementation |
+| [backend/agents/contradiction_auditor.py](backend/agents/contradiction_auditor.py) | Integration with belief auditing |
+| [data/contradiction_corpus.json](data/contradiction_corpus.json) | 70-case curated corpus |
+| [tests/core/test_semantic_contradiction.py](tests/core/test_semantic_contradiction.py) | 43 unit tests |
+| [experiments/contradiction_benchmark.py](experiments/contradiction_benchmark.py) | Benchmark script |
+| [results/contradiction_benchmark.json](results/contradiction_benchmark.json) | Benchmark artifact |
+
+### Run the Benchmark
+
+```bash
+PYTHONPATH=$PWD python experiments/contradiction_benchmark.py
+```
+
+---
+
 ## Limitations
 
-- Contradiction detection uses embeddings, antonym lists, and numeric comparison - not full semantic understanding
+- Contradiction detection is rule-based, not LLM-based. Strong on quantifiers/numerics, weaker on modality/temporal reasoning. See [benchmarks](results/contradiction_benchmark.json).
 - LLM responses depend on model quality and prompt engineering
 - Hybrid mode pattern matching may miss some real-time query types
 
@@ -386,8 +463,9 @@ Not yet implemented:
 
 - [ ] Belief Explorer UI
 - [ ] Document ingestion service
-- [ ] Full semantic contradiction detection (LLM-based)
+- [ ] LLM-based contradiction detection (current system is rule-based)
 - [ ] Benchmarks against production memory systems
+- [x] Semantic contradiction detection (rule-based with 14 rules across 6 categories)
 - [x] Hierarchical context (session → user)
 - [x] Numeric contradiction detection
 - [x] Hybrid LLM routing
