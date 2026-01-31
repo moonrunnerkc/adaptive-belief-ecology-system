@@ -119,6 +119,11 @@ class ContradictionDetectedEvent:
     tension: float
     threshold: float
     timestamp: datetime
+    # Additional context for debugging and UI display
+    contradicting_belief_id: UUID = None
+    belief_content: str = ""
+    contradicting_content: str = ""
+    similarity_score: float = 0.0
 
 
 class ContradictionAuditorAgent:
@@ -186,14 +191,18 @@ class ContradictionAuditorAgent:
 
     def _compute_tensions_from_cache(
         self, beliefs: List[Belief], similarity_threshold: float = 0.5
-    ) -> dict[UUID, float]:
+    ) -> Tuple[dict[UUID, float], dict[UUID, Tuple[UUID, str, float]]]:
         """Pairwise tension via cached embeddings.
+
+        Returns:
+            tension_scores: dict mapping belief_id to total tension
+            top_contradictors: dict mapping belief_id to (contradicting_id, content, similarity)
 
         Similarity threshold lowered to 0.5 to catch contradictions like
         'warm' vs 'cold' which have ~0.69 similarity.
         """
         if not beliefs:
-            return {}
+            return {}, {}
 
         # sort by UUID hex for deterministic pairwise ordering
         beliefs = sorted(beliefs, key=lambda b: str(b.id))
@@ -209,6 +218,8 @@ class ContradictionAuditorAgent:
             embeddings.append(np.array(emb))
 
         tension_scores: dict[UUID, float] = {b.id: 0.0 for b in beliefs}
+        # Track the highest-similarity contradictor for each belief
+        top_contradictors: dict[UUID, Tuple[UUID, str, float]] = {}
 
         n = len(beliefs)
         total_pairs = n * (n - 1) // 2
@@ -235,6 +246,11 @@ class ContradictionAuditorAgent:
                     if _is_likely_negation(b1.content, b2.content):
                         tension_scores[b1.id] += similarity
                         tension_scores[b2.id] += similarity
+                        # Track top contradictor for each
+                        if b1.id not in top_contradictors or similarity > top_contradictors[b1.id][2]:
+                            top_contradictors[b1.id] = (b2.id, b2.content, similarity)
+                        if b2.id not in top_contradictors or similarity > top_contradictors[b2.id][2]:
+                            top_contradictors[b2.id] = (b1.id, b1.content, similarity)
 
             if comparison_count > MAX_PAIRWISE_COMPARISONS:
                 break
@@ -244,7 +260,7 @@ class ContradictionAuditorAgent:
             if tension_scores[bid] > MAX_TENSION_VALUE:
                 tension_scores[bid] = MAX_TENSION_VALUE
 
-        return tension_scores
+        return tension_scores, top_contradictors
 
     async def _load_persisted_state(self, store) -> None:
         """Try loading debounce state from store."""
@@ -292,7 +308,10 @@ class ContradictionAuditorAgent:
         self._prune_stale_debounce_state(current_ids)
 
         self._cache_embeddings(beliefs)
-        tension_scores = self._compute_tensions_from_cache(beliefs)
+        tension_scores, top_contradictors = self._compute_tensions_from_cache(beliefs)
+
+        # Build content lookup for event population
+        belief_content_map = {b.id: b.content for b in beliefs}
 
         for b in beliefs:
             if b.id not in tension_scores:
@@ -310,12 +329,18 @@ class ContradictionAuditorAgent:
                 currently_above.add(belief.id)
                 # debounce: only fire if newly above
                 if belief.id not in self._above_threshold:
+                    # Get contradictor info if available
+                    contradictor = top_contradictors.get(belief.id)
                     events.append(
                         ContradictionDetectedEvent(
                             belief_id=belief.id,
                             tension=t,
                             threshold=threshold,
                             timestamp=now,
+                            contradicting_belief_id=contradictor[0] if contradictor else None,
+                            belief_content=belief.content,
+                            contradicting_content=contradictor[1] if contradictor else "",
+                            similarity_score=contradictor[2] if contradictor else 0.0,
                         )
                     )
 

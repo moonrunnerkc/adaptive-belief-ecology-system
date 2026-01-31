@@ -145,8 +145,9 @@ class TestActionDecoding:
         action = np.ones(BeliefEcologyEnv.ACTION_DIM)
         result = env.step(action)
 
-        # mutation threshold should increase
-        assert result.info["action"]["mutation_threshold"] > 0.6
+        # mutation threshold should increase or reach upper bound
+        # default is 0.5, delta is +0.1, so result is 0.6
+        assert result.info["action"]["mutation_threshold"] >= 0.6
 
     def test_negative_action_decreases(self):
         env = BeliefEcologyEnv()

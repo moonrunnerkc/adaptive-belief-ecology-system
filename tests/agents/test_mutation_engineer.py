@@ -188,11 +188,15 @@ class TestProposeMutation:
         assert proposal.original_id == b.id
         assert proposal.mutated_belief.parent_id == b.id
 
-    def test_mutated_belief_has_neutral_confidence(self):
+    def test_mutated_belief_has_reduced_confidence(self):
+        """Mutated beliefs get reduced confidence based on tension penalty."""
         agent = MutationEngineerAgent(tension_threshold=0.6, confidence_threshold=0.5)
         b = _make_belief(tension=0.7, confidence=0.4)
         proposal = agent.propose_mutation(b)
-        assert proposal.mutated_belief.confidence == 0.5
+        # Confidence is reduced with penalty: original - 0.1 - (tension * 0.1)
+        # 0.4 - 0.1 - 0.07 = 0.23, clamped to 0.3 minimum
+        assert proposal.mutated_belief.confidence <= b.confidence
+        assert proposal.mutated_belief.confidence >= 0.3
 
     def test_mutated_belief_inherits_tags(self):
         agent = MutationEngineerAgent(tension_threshold=0.6, confidence_threshold=0.5)

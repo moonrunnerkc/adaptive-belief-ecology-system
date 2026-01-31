@@ -3,30 +3,37 @@ Dependency injection for FastAPI and other components.
 Provides singletons for stores and config.
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from ..storage import InMemoryBeliefStore, InMemorySnapshotStore
-from ..storage.base import BeliefStoreABC, SnapshotStoreABC
 from .config import ABESSettings, settings
 
+# Lazy imports to avoid circular dependency
+if TYPE_CHECKING:
+    from ..storage import InMemoryBeliefStore, InMemorySnapshotStore
+    from ..storage.base import BeliefStoreABC, SnapshotStoreABC
+
 # singleton stores for in-memory mode
-_belief_store: Optional[InMemoryBeliefStore] = None
-_snapshot_store: Optional[InMemorySnapshotStore] = None
+_belief_store: Optional["InMemoryBeliefStore"] = None
+_snapshot_store: Optional["InMemorySnapshotStore"] = None
 _bel: Optional["BeliefEcologyLoop"] = None
 _cluster_manager: Optional["BeliefClusterManager"] = None
 _scheduler: Optional["AgentScheduler"] = None
 
 
-def get_belief_store() -> BeliefStoreABC:
+def get_belief_store():
     """Get the belief store singleton."""
+    from ..storage import InMemoryBeliefStore
+
     global _belief_store
     if _belief_store is None:
         _belief_store = InMemoryBeliefStore()
     return _belief_store
 
 
-def get_snapshot_store() -> SnapshotStoreABC:
+def get_snapshot_store():
     """Get the snapshot store singleton."""
+    from ..storage import InMemorySnapshotStore
+
     global _snapshot_store
     if _snapshot_store is None:
         _snapshot_store = InMemorySnapshotStore()
