@@ -114,7 +114,10 @@ class MutationEngineerAgent:
         return f"It may be that {content[0].lower()}{content[1:]}"
 
     def _apply_condition(self, content: str, date_hint: str) -> str:
-        """Add temporal condition to content."""
+        """Add temporal condition to content. Avoids double-conditioning."""
+        # avoid adding "at least as of" if already present
+        if "at least as of" in content.lower():
+            return content
         # strip trailing punctuation for clean append
         cleaned = content.rstrip(".,;")
         return f"{cleaned}, at least as of {date_hint}"
@@ -154,9 +157,23 @@ class MutationEngineerAgent:
         """Pick mutation strategy based on belief characteristics."""
         # priority order per spec 3.4.9
 
+        # If belief already has temporal condition, don't apply condition again
+        if "at least as of" in belief.content.lower():
+            # Already has temporal qualification, use hedge or source
+            if belief.confidence < 0.3:
+                return "source_attribute"
+            return "hedge"
+
         # 1. if contradicting belief has temporal marker, use condition
-        if contradicting and _has_temporal_marker(contradicting.content):
-            return "condition"
+        # But not if it's an "as of" from our own mutation
+        if contradicting:
+            cont_content = contradicting.content.lower()
+            has_real_temporal = _has_temporal_marker(contradicting.content)
+            # Exclude our own mutation markers
+            if "at least as of" in cont_content:
+                has_real_temporal = False
+            if has_real_temporal:
+                return "condition"
 
         # 2. if belief has broad claim and contradiction exists, narrow scope
         if _has_broad_claim(belief.content) and contradicting:

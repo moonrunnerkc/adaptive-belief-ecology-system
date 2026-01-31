@@ -259,17 +259,36 @@ class ChatService:
             if not contradicting:
                 continue
 
-            # Only mutate if confidences are similar (within 15%)
-            # If one is clearly more confident, it "wins" and we don't need to hedge
+            # Only mutate if confidences are similar (within 10%)
+            # If one is more confident from more evidence, it "wins"
             confidence_diff = abs(belief.confidence - contradicting.confidence)
 
-            if confidence_diff > 0.15:
+            if confidence_diff > 0.10:
                 # Clear winner - deprecate the loser, don't mutate
                 loser = belief if belief.confidence < contradicting.confidence else contradicting
+                winner = contradicting if belief.confidence < contradicting.confidence else belief
                 if loser.id == belief.id:  # Only process each pair once
-                    loser.confidence *= 0.8  # Reduce confidence of loser
+                    # Deprecate loser instead of just reducing confidence
+                    loser.status = BeliefStatus.Deprecated
+                    loser.confidence *= 0.5
                     await self.belief_store.update(loser)
-                    logger.info(f"Confidence winner: {contradicting.content[:30]}... over {belief.content[:30]}...")
+
+                    # Boost winner slightly
+                    winner.confidence = min(0.95, winner.confidence + 0.05)
+                    winner.tension = 0.0  # Clear tension since contradiction resolved
+                    await self.belief_store.update(winner)
+
+                    turn.beliefs_deprecated.append(loser.id)
+                    turn.events.append(BeliefEvent(
+                        event_type="deprecated",
+                        belief_id=loser.id,
+                        content=loser.content,
+                        confidence=loser.confidence,
+                        tension=loser.tension,
+                        details={"reason": "contradiction_resolved", "winner_id": str(winner.id)},
+                    ))
+                    self._emit_event(turn.events[-1])
+                    logger.info(f"Contradiction resolved: {winner.content[:30]}... wins over {loser.content[:30]}...")
                 continue
 
             # Similar confidence - need to hedge/mutate
