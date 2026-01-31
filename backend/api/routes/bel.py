@@ -42,6 +42,8 @@ async def run_iteration(req: IterationRequest):
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats():
     """Get current system statistics."""
+    from ...core.config import settings
+
     belief_store = get_belief_store()
     snapshot_store = get_snapshot_store()
 
@@ -65,6 +67,11 @@ async def get_stats():
         snapshot_count=len(snapshots),
         avg_confidence=avg_conf,
         avg_tension=avg_tens,
+        storage_backend=settings.storage_backend,
+        llm_provider=settings.llm_provider,
+        llm_fallback_enabled=settings.llm_fallback_enabled,
+        decay_profile=settings.decay_profile.value,
+        embedding_model=settings.embedding_model,
     )
 
 

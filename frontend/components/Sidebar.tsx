@@ -4,6 +4,8 @@
 import { ChatSession } from '@/lib/api';
 import clsx from 'clsx';
 import { ChevronLeft, MessageSquare, Plus, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { SettingsModal } from './SettingsModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,10 +24,13 @@ export function Sidebar({
   onNewSession,
   onSelectSession,
 }: SidebarProps) {
+  const [showSettings, setShowSettings] = useState(false);
+
   if (!isOpen) return null;
 
   return (
-    <div className="w-64 bg-[#0d0d0d] border-r border-[#1f1f1f] flex flex-col">
+    <>
+      <div className="w-64 bg-[#0d0d0d] border-r border-[#1f1f1f] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-[#1f1f1f]">
         <span className="text-sm font-medium text-neutral-300">Conversations</span>
@@ -82,11 +87,17 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="p-3 border-t border-[#1f1f1f]">
-        <button className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-neutral-500 hover:bg-[#141414] hover:text-neutral-400 text-sm transition-colors">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-neutral-500 hover:bg-[#141414] hover:text-neutral-400 text-sm transition-colors"
+        >
           <Settings className="w-4 h-4" />
           Settings
         </button>
       </div>
     </div>
+
+    <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+    </>
   );
 }

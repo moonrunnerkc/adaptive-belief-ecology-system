@@ -159,6 +159,12 @@ class StatsResponse(BaseModel):
     snapshot_count: int
     avg_confidence: float
     avg_tension: float
+    # Configuration info
+    storage_backend: str = "memory"
+    llm_provider: str = "ollama"
+    llm_fallback_enabled: bool = True
+    decay_profile: str = "moderate"
+    embedding_model: str = "all-MiniLM-L6-v2"
 
 
 __all__ = [

@@ -170,3 +170,18 @@ async def reinforce_belief(
 
     await store.update(belief)
     return _belief_to_response(belief)
+
+
+@router.post("/clear")
+async def clear_all_beliefs():
+    """Clear all beliefs from the store. Use with caution."""
+    store = get_belief_store()
+
+    # Get all beliefs and delete them
+    all_beliefs = await store.list(limit=10000)
+    count = 0
+    for belief in all_beliefs:
+        await store.delete(belief.id)
+        count += 1
+
+    return {"cleared": count, "message": f"Deleted {count} beliefs"}
