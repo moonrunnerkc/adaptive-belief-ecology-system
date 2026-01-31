@@ -125,6 +125,7 @@ class ChatService:
         message: str,
         session_id: Optional[UUID] = None,
         context: Optional[str] = None,
+        user_id: Optional[UUID] = None,
     ) -> ChatTurn:
         """
         Process a user message through the full ABES pipeline.
@@ -154,6 +155,7 @@ class ChatService:
                 candidates=candidates,
                 origin=origin,
                 store=self.belief_store,
+                user_id=user_id,  # Associate with user
             )
 
             for belief in created_beliefs:

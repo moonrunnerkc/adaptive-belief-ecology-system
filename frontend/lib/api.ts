@@ -176,16 +176,30 @@ export interface ChatSession {
 
 export async function sendChatMessage(
   message: string,
-  sessionId?: string
+  sessionId?: string,
+  token?: string | null
 ): Promise<ChatTurn> {
-  return fetchJson<ChatTurn>('/chat/message', {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch('http://localhost:8000/chat/message', {
     method: 'POST',
+    headers,
     body: JSON.stringify({
       message,
       session_id: sessionId,
       stream: false,
     }),
   });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `API error: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 export async function createChatSession(): Promise<{ id: string; created_at: string }> {

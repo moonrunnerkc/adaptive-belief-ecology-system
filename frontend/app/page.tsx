@@ -2,18 +2,19 @@
 'use client';
 
 import { fetchStats, Stats } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import {
-    Activity,
     Brain,
     ChevronRight,
-    Database,
     FileText,
     GitBranch,
+    LogOut,
     MessageSquare,
     Search,
-    Settings
+    User
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface ServiceCard {
@@ -64,17 +65,42 @@ const services: ServiceCard[] = [
 export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    fetchStats().then(setStats).catch(() => {});
+    if (isAuthenticated) {
+      fetchStats().then(setStats).catch(() => {});
 
-    // Check WebSocket connectivity
-    const ws = new WebSocket('ws://localhost:8000/chat/ws');
-    ws.onopen = () => setWsConnected(true);
-    ws.onerror = () => setWsConnected(false);
-    ws.onclose = () => setWsConnected(false);
-    return () => ws.close();
-  }, []);
+      // Check WebSocket connectivity
+      const ws = new WebSocket('ws://localhost:8000/chat/ws');
+      ws.onopen = () => setWsConnected(true);
+      ws.onerror = () => setWsConnected(false);
+      ws.onclose = () => setWsConnected(false);
+      return () => ws.close();
+    }
+  }, [isAuthenticated]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Brain className="w-8 h-8 text-neutral-500 animate-pulse" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-neutral-100">
@@ -99,8 +125,17 @@ export default function HomePage() {
               <span className={`w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-emerald-500' : 'bg-neutral-500'}`} />
               {wsConnected ? 'System Online' : 'Connecting...'}
             </div>
-            <button className="p-2 rounded-lg hover:bg-[#141414] text-neutral-500 transition-colors">
-              <Settings className="w-5 h-5" />
+            {/* User Menu */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#141414] rounded-lg border border-[#2a2a2a]">
+              <User className="w-4 h-4 text-neutral-400" />
+              <span className="text-sm text-neutral-300">{user?.name}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg hover:bg-[#141414] text-neutral-500 hover:text-red-400 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>

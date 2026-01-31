@@ -28,7 +28,11 @@ interface Message {
   };
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  token?: string | null;
+}
+
+export function ChatInterface({ token }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -158,7 +162,7 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const turn = await sendChatMessage(userMessage.content, sessionId || undefined);
+      const turn = await sendChatMessage(userMessage.content, sessionId || undefined, token);
 
       if (!sessionId) {
         await loadSessions();

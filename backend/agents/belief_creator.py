@@ -4,7 +4,8 @@ BeliefCreatorAgent - embeds candidates, dedupes via cosine similarity, persists 
 """
 
 import re
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 import numpy as np
 
@@ -57,7 +58,11 @@ class BeliefCreatorAgent:
         return tags
 
     async def create_beliefs(
-        self, candidates: List[str], origin: OriginMetadata, store: BeliefStoreABC
+        self,
+        candidates: List[str],
+        origin: OriginMetadata,
+        store: BeliefStoreABC,
+        user_id: Optional[UUID] = None,
     ) -> List[Belief]:
         """Embed, dedupe, persist. Returns list of created beliefs."""
         # filter junk early
@@ -121,6 +126,7 @@ class BeliefCreatorAgent:
                 origin=origin,
                 tags=tags,
                 status=BeliefStatus.Active,
+                user_id=user_id,
             )
 
             created_belief = await store.create(belief)

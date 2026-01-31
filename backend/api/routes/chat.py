@@ -10,11 +10,13 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from ...chat import ChatService, BeliefEvent, ChatTurn, get_chat_service
 from ...core.deps import get_belief_store
+from ...core.models.user import User
+from .auth import get_current_user, get_optional_user
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +187,7 @@ def _turn_to_response(turn: ChatTurn) -> ChatTurnResponse:
 # === REST Endpoints ===
 
 @router.post("/message", response_model=ChatTurnResponse)
-async def send_message(req: ChatMessageRequest):
+async def send_message(req: ChatMessageRequest, user: User = Depends(get_current_user)):
     """
     Send a chat message and get a response.
 
@@ -206,6 +208,7 @@ async def send_message(req: ChatMessageRequest):
             message=req.message,
             session_id=session_id,
             context=req.context,
+            user_id=user.id,  # Associate with user
         )
         return _turn_to_response(turn)
     except Exception as e:

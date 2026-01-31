@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import (
     agents_router,
+    auth_router,
     bel_router,
     beliefs_router,
     chat_router,
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 # include routers
+app.include_router(auth_router)
 app.include_router(beliefs_router)
 app.include_router(snapshots_router)
 app.include_router(agents_router)

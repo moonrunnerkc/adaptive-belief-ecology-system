@@ -126,6 +126,10 @@ class ABESSettings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-3-haiku-20240307"
 
+    # --- Authentication ---
+    jwt_secret: str = ""  # auto-generated if empty
+    jwt_expiration_hours: int = 168  # 1 week
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
