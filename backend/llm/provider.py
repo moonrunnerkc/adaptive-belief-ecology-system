@@ -422,6 +422,15 @@ def get_llm_provider():
                 api_key=settings.anthropic_api_key,
                 model=settings.anthropic_model,
             )
+        elif settings.llm_provider == "hybrid":
+            # Hybrid: local Ollama for most things, OpenAI for live/real-time queries
+            from .hybrid_provider import HybridProvider
+            _provider = HybridProvider(
+                ollama_base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
+                ollama_model=getattr(settings, "ollama_model", "llama3.1:8b-instruct-q4_0"),
+                openai_api_key=settings.openai_api_key,
+                openai_model=settings.openai_model,
+            )
         else:
             # Default to Ollama
             _provider = OllamaProvider(

@@ -1,5 +1,5 @@
 # Author: Bradley R. Kinnard
-"""LLM integration for ABES - supports Ollama, OpenAI, and Anthropic."""
+"""LLM integration for ABES - supports Ollama, OpenAI, Anthropic, and Hybrid mode."""
 
 from .provider import (
     ChatMessage,
@@ -11,6 +11,7 @@ from .provider import (
 )
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
+from .hybrid_provider import HybridProvider
 
 __all__ = [
     "ChatMessage",
@@ -19,6 +20,7 @@ __all__ = [
     "OllamaProvider",
     "OpenAIProvider",
     "AnthropicProvider",
+    "HybridProvider",
     "FallbackProvider",
     "get_llm_provider",
 ]

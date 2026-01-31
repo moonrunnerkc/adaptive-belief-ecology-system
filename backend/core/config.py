@@ -49,7 +49,8 @@ class ABESSettings(BaseSettings):
     # half-life ~138 hours at 0.995
 
     # --- LLM Configuration ---
-    llm_provider: Literal["ollama", "openai", "anthropic", "none"] = "ollama"
+    # hybrid = local Ollama for beliefs, OpenAI for live/real-time queries
+    llm_provider: Literal["ollama", "openai", "anthropic", "hybrid", "none"] = "ollama"
     llm_fallback_enabled: bool = True  # if LLM fails, return beliefs without response
 
     # --- Status Thresholds (spec 3.4.2) ---
