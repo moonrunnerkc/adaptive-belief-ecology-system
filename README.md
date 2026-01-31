@@ -20,7 +20,7 @@ This is a research prototype. It works, but it's not production-ready.
 
 ## The Chatbot
 
-ABES includes a conversational chatbot that demonstrates the belief ecology in action. The chatbot is powered by a local Ollama LLM and uses your stored beliefs to provide personalized responses.
+ABES includes a conversational chatbot that demonstrates the belief ecology in action. The chatbot supports multiple LLM backends (local Ollama or cloud providers) and uses your stored beliefs to provide personalized responses.
 
 ### Why the chatbot exists
 
@@ -32,20 +32,20 @@ The chat interface is the primary way to interact with and test the belief ecolo
 4. Contradicting beliefs accumulate tension
 5. The LLM generates responses using your belief context
 
-This lets you watch the ecology evolve in real time. Say "My name is Brad" a few times and watch the confidence climb. Then say "Actually my name is Sam" and watch the tension spike.
+This lets you watch the ecology evolve in real time. Tell it a fact a few times and watch the confidence climb. Then contradict yourself and watch the tension spike.
 
 ### How to use it
 
 1. Start the backend: `PYTHONPATH=$PWD uvicorn backend.api.app:app --port 8000`
 2. Start the frontend: `cd frontend && npm run dev`
-3. Start Ollama: `ollama serve`
+3. Start Ollama: `ollama serve` (if using local LLM)
 4. Open http://localhost:3000/chat
 
 Try these interactions:
-- "My name is Brad and I have two dogs named Reaper and Rocky"
-- "Reaper sings like a bird"
-- "What do you know about me?"
-- "Actually I have three dogs" (creates tension with previous belief)
+- "The project deadline is next Friday"
+- "The budget is $50,000 for Q1"
+- "What do you know about the project?"
+- "Actually the deadline is next Monday" (creates tension with previous belief)
 
 The Activity panel on the right shows belief events as they happen.
 
@@ -172,13 +172,15 @@ All parameters are set via environment variables or [backend/core/config.py](bac
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `LLM_PROVIDER` | ollama | Provider: `ollama`, `openai`, `anthropic`, `none` |
+| `LLM_PROVIDER` | ollama | Provider: `ollama`, `openai`, `anthropic`, `hybrid`, `none` |
 | `LLM_FALLBACK_ENABLED` | true | Fall back to raw beliefs if LLM fails |
 | `OLLAMA_MODEL` | llama3.1:8b-instruct-q4_0 | Ollama model name |
-| `OPENAI_API_KEY` | | OpenAI API key |
+| `OPENAI_API_KEY` | | OpenAI API key (required for `openai` or `hybrid` mode) |
 | `OPENAI_MODEL` | gpt-4o-mini | OpenAI model name |
 | `ANTHROPIC_API_KEY` | | Anthropic API key |
 | `ANTHROPIC_MODEL` | claude-3-haiku-20240307 | Anthropic model name |
+
+**Hybrid Mode**: Set `LLM_PROVIDER=hybrid` to use local Ollama for belief-grounded responses and OpenAI only for real-time queries (weather, traffic, news, stock prices). This saves API costs while still enabling live information lookup.
 
 ### Belief Ecology Settings
 
@@ -267,52 +269,63 @@ d4dd4f5c4a777eac6d2954cd25030f74c9a4e7f27275f1c5e19fa21795d247c5  results/decay_
 
 ---
 
-## Recent Fixes (2026-01-30)
+## Recent Updates (2026-01-30)
 
 All 638 tests passing. Here's what was fixed and added:
 
+### Context Enhancements
+
+1. **Hierarchical Belief Context**
+   - Session-first lookup: beliefs from current conversation shown as "FROM THIS CONVERSATION"
+   - User-wide fallback: beliefs from previous sessions shown as "FROM PREVIOUS CONVERSATIONS"
+   - User isolation: `user_id` is the ceiling - no cross-user data leakage
+   - LLM now distinguishes "just told me" vs "remembered from before"
+
+2. **Numeric Contradiction Detection**
+   - Detects conflicting numeric values (e.g., "40 degrees" vs "70 degrees")
+   - Extracts numbers with unit context (degrees, dollars, percent, etc.)
+   - Triggers tension when same-topic statements have >20% numeric difference
+   - Reinforcement agent skips beliefs with conflicting numeric values
+
+3. **Hybrid LLM Provider** (`LLM_PROVIDER=hybrid`)
+   - Routes queries between local Ollama and cloud OpenAI
+   - Local Ollama: belief-grounded responses, general conversation
+   - OpenAI: real-time queries (weather, traffic, news, stocks, search)
+   - Pattern-based detection for live information needs
+   - Saves API costs by only using cloud when necessary
+
 ### Bug Fixes
 
-1. **Mutation engineer confidence calculation**
+4. **Mutation engineer confidence calculation**
    - Mutated beliefs preserve relative confidence with tension-based penalty
    - Formula: `original - 0.1 - (tension * 0.1)`, floor 0.3
 
-2. **RL environment action decoding**
+5. **RL environment action decoding**
    - Fixed boundary condition in test assertion (> changed to >=)
 
-3. **Circular import in storage/core modules**
+6. **Circular import in storage/core modules**
    - Moved imports to function level with TYPE_CHECKING guard
 
-4. **ContradictionDetectedEvent enriched**
+7. **ContradictionDetectedEvent enriched**
    - Added: contradicting_belief_id, belief_content, contradicting_content, similarity_score
 
-### New Features
+### Infrastructure
 
-5. **GitHub Actions CI Pipeline** (`.github/workflows/ci.yml`)
+8. **GitHub Actions CI Pipeline** (`.github/workflows/ci.yml`)
    - Runs pytest on push/PR to main
    - Includes lint checks with ruff
 
-6. **SQLite Persistence** (`STORAGE_BACKEND=sqlite`)
+9. **SQLite Persistence** (`STORAGE_BACKEND=sqlite`)
    - Beliefs survive server restarts
    - Async support via aiosqlite
 
-7. **Session Isolation** (`session_id` on beliefs)
-   - Multi-user support ready
-   - Filter beliefs by session
+10. **Session Isolation** (`session_id` on beliefs)
+    - Multi-user support ready
+    - Filter beliefs by session
 
-8. **Multiple LLM Providers**
-   - Ollama (default), OpenAI, Anthropic
-   - Set via `LLM_PROVIDER` env var
-
-9. **LLM Fallback Mode**
-   - If LLM fails, returns raw beliefs
-   - Set `LLM_FALLBACK_ENABLED=true`
-
-10. **Configurable Decay Profiles**
-    - `DECAY_PROFILE`: aggressive (0.99), moderate (0.995), conservative (0.999), persistent (0.9999)
-
-11. **Configurable Embedding Model**
-    - `EMBEDDING_MODEL` env var (default: all-MiniLM-L6-v2)
+11. **Multiple LLM Providers**
+    - Ollama (default), OpenAI, Anthropic, Hybrid
+    - Set via `LLM_PROVIDER` env var
 
 12. **User Authentication**
     - JWT-based login/register system
@@ -322,7 +335,7 @@ All 638 tests passing. Here's what was fixed and added:
 
 ### Remaining Known Issues
 
-- Contradiction detection uses embeddings and antonym lists, not full semantic understanding
+- Contradiction detection uses embeddings, antonym lists, and numeric comparison - not full semantic understanding
 
 ---
 
@@ -361,7 +374,9 @@ User accounts are stored in `data/users.db` (SQLite). This file is in `.gitignor
 
 ## Limitations
 
-- Contradiction detection uses embeddings and antonym lists, not full semantic understanding
+- Contradiction detection uses embeddings, antonym lists, and numeric comparison - not full semantic understanding
+- LLM responses depend on model quality and prompt engineering
+- Hybrid mode pattern matching may miss some real-time query types
 
 ---
 
@@ -373,6 +388,9 @@ Not yet implemented:
 - [ ] Document ingestion service
 - [ ] Full semantic contradiction detection (LLM-based)
 - [ ] Benchmarks against production memory systems
+- [x] Hierarchical context (session → user)
+- [x] Numeric contradiction detection
+- [x] Hybrid LLM routing
 
 ---
 
