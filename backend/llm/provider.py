@@ -407,12 +407,27 @@ def get_llm_provider():
             _fallback = FallbackProvider()
         return _fallback
 
-    # Try primary provider (currently only Ollama supported)
+    # Create provider based on settings
     if _provider is None:
-        _provider = OllamaProvider(
-            base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
-            model=getattr(settings, "ollama_model", "llama3.1:8b-instruct-q4_0"),
-        )
+        if settings.llm_provider == "openai":
+            from .openai_provider import OpenAIProvider
+            _provider = OpenAIProvider(
+                api_key=settings.openai_api_key,
+                model=settings.openai_model,
+                base_url=settings.openai_base_url,
+            )
+        elif settings.llm_provider == "anthropic":
+            from .anthropic_provider import AnthropicProvider
+            _provider = AnthropicProvider(
+                api_key=settings.anthropic_api_key,
+                model=settings.anthropic_model,
+            )
+        else:
+            # Default to Ollama
+            _provider = OllamaProvider(
+                base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
+                model=getattr(settings, "ollama_model", "llama3.1:8b-instruct-q4_0"),
+            )
 
     # If fallback is enabled, wrap the provider
     if settings.llm_fallback_enabled:

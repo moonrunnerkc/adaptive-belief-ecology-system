@@ -158,14 +158,36 @@ Open http://localhost:3000/chat
 
 All parameters are set via environment variables or [backend/core/config.py](backend/core/config.py).
 
+### Core Settings
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `DECAY_RATE` | 0.995 | Per-hour confidence multiplier |
+| `STORAGE_BACKEND` | memory | `memory` or `sqlite` for persistence |
+| `DATABASE_URL` | sqlite+aiosqlite:///./data/abes.db | SQLite database path |
+| `DECAY_PROFILE` | moderate | Presets: `aggressive`, `moderate`, `conservative`, `persistent` |
+| `DECAY_RATE` | 0.995 | Per-hour confidence multiplier (overridden by profile) |
+| `EMBEDDING_MODEL` | all-MiniLM-L6-v2 | Sentence transformer model |
+
+### LLM Settings
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `LLM_PROVIDER` | ollama | Provider: `ollama`, `openai`, `anthropic`, `none` |
+| `LLM_FALLBACK_ENABLED` | true | Fall back to raw beliefs if LLM fails |
+| `OLLAMA_MODEL` | llama3.1:8b-instruct-q4_0 | Ollama model name |
+| `OPENAI_API_KEY` | | OpenAI API key |
+| `OPENAI_MODEL` | gpt-4o-mini | OpenAI model name |
+| `ANTHROPIC_API_KEY` | | Anthropic API key |
+| `ANTHROPIC_MODEL` | claude-3-haiku-20240307 | Anthropic model name |
+
+### Belief Ecology Settings
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
 | `CONFIDENCE_THRESHOLD_DECAYING` | 0.3 | Threshold to mark belief as decaying |
 | `TENSION_THRESHOLD_MUTATION` | 0.5 | Trigger mutation proposals |
 | `CLUSTER_SIMILARITY_THRESHOLD` | 0.7 | Min similarity to join cluster |
 | `REINFORCEMENT_SIMILARITY_THRESHOLD` | 0.7 | Min similarity for reinforcement |
-| `OLLAMA_MODEL` | llama3.1:8b-instruct-q4_0 | LLM model for chat |
 | `MAX_ACTIVE_BELIEFS` | 10000 | Safety limit |
 
 ---
@@ -268,9 +290,6 @@ All tests now pass. Here's what was fixed:
 
 ### Known Issues Being Worked On
 
-- Chat requires Ollama running locally (no fallback)
-- No persistence. Server restart clears all beliefs.
-- Single-user only. No session isolation.
 - Contradiction detection uses embeddings and antonym lists, not full semantic understanding
 - The decay factor default (0.995) might be too aggressive for some use cases
 
@@ -278,11 +297,8 @@ All tests now pass. Here's what was fixed:
 
 ## Limitations
 
-- In-memory storage only. All state lost on restart.
-- Single-user. No authentication or session isolation.
-- No CI/CD pipeline. Tests run locally only.
-- Ollama-only LLM. No OpenAI/Anthropic integration yet.
-- Fixed embedding model (all-MiniLM-L6-v2)
+- Contradiction detection uses embeddings and antonym lists, not full semantic understanding
+- No authentication (session isolation is available but no user auth)
 
 ---
 
@@ -290,13 +306,11 @@ All tests now pass. Here's what was fixed:
 
 Not yet implemented:
 
-- [ ] Persistent storage (SQLite/PostgreSQL)
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Multi-user session support
 - [ ] Belief Explorer UI
 - [ ] Document ingestion service
-- [ ] OpenAI/Anthropic LLM providers
+- [ ] Full semantic contradiction detection (LLM-based)
 - [ ] Benchmarks against production memory systems
+- [ ] Authentication and user management
 
 ---
 
