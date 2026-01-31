@@ -61,6 +61,7 @@ class Belief(BeliefBaseModel):
     use_count: int = 0
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+    session_id: Optional[str] = None  # for multi-user session isolation
 
     # computed fields for ranking (set by BEL loop, not persisted)
     relevance: Optional[float] = None  # similarity to current context

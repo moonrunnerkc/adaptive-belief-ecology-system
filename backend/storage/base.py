@@ -39,6 +39,7 @@ class BeliefStoreABC(ABC):
         max_confidence: Optional[float] = None,
         limit: int = 100,
         offset: int = 0,
+        session_id: Optional[str] = None,
     ) -> List[Belief]:
         """
         List beliefs with filters. By convention, implementations sort by

@@ -3,8 +3,29 @@ Configuration for ABES using Pydantic settings.
 Reads from environment variables or .env file.
 """
 
-from pydantic import Field
+from enum import Enum
+from typing import Literal
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DecayProfile(str, Enum):
+    """Preset decay configurations for different use cases."""
+
+    aggressive = "aggressive"  # 0.99 - forgets quickly, good for transient info
+    moderate = "moderate"  # 0.995 - balanced (default)
+    conservative = "conservative"  # 0.999 - retains beliefs longer
+    persistent = "persistent"  # 0.9999 - almost no decay
+
+
+# Decay rate mapping for presets
+DECAY_PROFILES = {
+    DecayProfile.aggressive: 0.99,
+    DecayProfile.moderate: 0.995,
+    DecayProfile.conservative: 0.999,
+    DecayProfile.persistent: 0.9999,
+}
 
 
 class ABESSettings(BaseSettings):
@@ -13,7 +34,8 @@ class ABESSettings(BaseSettings):
     # environment
     environment: str = "development"
 
-    # storage
+    # storage backend: "memory" or "sqlite"
+    storage_backend: Literal["memory", "sqlite"] = "memory"
     database_url: str = "sqlite+aiosqlite:///./data/abes.db"
 
     # --- Embedding Configuration (spec 3.5) ---
@@ -22,8 +44,13 @@ class ABESSettings(BaseSettings):
     embedding_batch_size: int = 64
 
     # --- Decay Parameters (spec 3.4.1) ---
-    decay_rate: float = 0.995  # per-hour multiplier
+    decay_profile: DecayProfile = DecayProfile.moderate
+    decay_rate: float = 0.995  # per-hour multiplier, overridden by profile if set
     # half-life ~138 hours at 0.995
+
+    # --- LLM Configuration ---
+    llm_provider: Literal["ollama", "openai", "anthropic", "none"] = "ollama"
+    llm_fallback_enabled: bool = True  # if LLM fails, return beliefs without response
 
     # --- Status Thresholds (spec 3.4.2) ---
     confidence_threshold_decaying: float = 0.3
@@ -90,15 +117,33 @@ class ABESSettings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_context_beliefs: int = 15  # max beliefs to include in LLM context
 
+    # --- OpenAI Configuration ---
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_base_url: str = "https://api.openai.com/v1"
+
+    # --- Anthropic Configuration ---
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-3-haiku-20240307"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
 
+    @model_validator(mode="after")
+    def apply_decay_profile(self) -> "ABESSettings":
+        """Apply decay profile to decay_rate if using a preset."""
+        if self.decay_profile in DECAY_PROFILES:
+            # Only override if decay_rate is still the default
+            if self.decay_rate == 0.995:
+                object.__setattr__(self, "decay_rate", DECAY_PROFILES[self.decay_profile])
+        return self
+
 
 # singleton instance
 settings = ABESSettings()
 
 
-__all__ = ["ABESSettings", "settings"]
+__all__ = ["ABESSettings", "settings", "DecayProfile", "DECAY_PROFILES"]

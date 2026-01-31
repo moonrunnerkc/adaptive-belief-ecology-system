@@ -331,19 +331,124 @@ Guidelines:
             return False
 
 
-# Singleton instance
+class FallbackProvider:
+    """
+    No-LLM fallback provider. Returns a summary of beliefs without LLM.
+    Used when no LLM is configured or when LLM is unavailable.
+    """
+
+    async def chat(
+        self,
+        messages: list[ChatMessage],
+        beliefs: list[Belief] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> ChatResponse:
+        """Generate a response using only beliefs, no LLM."""
+        beliefs = beliefs or []
+
+        if not beliefs:
+            content = (
+                "I don't have any stored beliefs yet. Tell me something about yourself "
+                "and I'll remember it! (Note: LLM is not available, showing beliefs only)"
+            )
+        else:
+            lines = ["Here's what I know about you (LLM unavailable, showing raw beliefs):"]
+            for b in sorted(beliefs, key=lambda x: x.confidence, reverse=True):
+                conf_pct = int(b.confidence * 100)
+                lines.append(f"- {b.content} ({conf_pct}% confident)")
+            content = "\n".join(lines)
+
+        return ChatResponse(
+            content=content,
+            model="fallback",
+            tokens_prompt=0,
+            tokens_completion=0,
+            duration_ms=0.0,
+            beliefs_used=[b.id for b in beliefs],
+        )
+
+    async def chat_stream(
+        self,
+        messages: list[ChatMessage],
+        beliefs: list[Belief] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> AsyncIterator[StreamChunk]:
+        """Stream fallback response."""
+        response = await self.chat(messages, beliefs, temperature, max_tokens)
+        yield StreamChunk(
+            content=response.content,
+            done=True,
+            model="fallback",
+        )
+
+    async def health_check(self) -> bool:
+        """Fallback is always healthy."""
+        return True
+
+    async def close(self) -> None:
+        """No resources to close."""
+        pass
+
+
+# Singleton instances
 _provider: Optional[OllamaProvider] = None
+_fallback: Optional[FallbackProvider] = None
 
 
-def get_llm_provider() -> OllamaProvider:
-    """Get or create the LLM provider singleton."""
-    global _provider
+def get_llm_provider():
+    """Get or create the LLM provider based on settings."""
+    global _provider, _fallback
+
+    # Check if LLM is disabled
+    if settings.llm_provider == "none":
+        if _fallback is None:
+            _fallback = FallbackProvider()
+        return _fallback
+
+    # Try primary provider (currently only Ollama supported)
     if _provider is None:
         _provider = OllamaProvider(
             base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
             model=getattr(settings, "ollama_model", "llama3.1:8b-instruct-q4_0"),
         )
+
+    # If fallback is enabled, wrap the provider
+    if settings.llm_fallback_enabled:
+        return _FallbackWrapper(_provider)
+
     return _provider
+
+
+class _FallbackWrapper:
+    """Wraps a provider to fall back on failure."""
+
+    def __init__(self, primary):
+        self.primary = primary
+        self.fallback = FallbackProvider()
+
+    async def chat(self, messages, beliefs=None, temperature=0.7, max_tokens=1024):
+        try:
+            return await self.primary.chat(messages, beliefs, temperature, max_tokens)
+        except Exception as e:
+            logger.warning(f"Primary LLM failed, using fallback: {e}")
+            return await self.fallback.chat(messages, beliefs, temperature, max_tokens)
+
+    async def chat_stream(self, messages, beliefs=None, temperature=0.7, max_tokens=1024):
+        try:
+            async for chunk in self.primary.chat_stream(messages, beliefs, temperature, max_tokens):
+                yield chunk
+        except Exception as e:
+            logger.warning(f"Primary LLM stream failed, using fallback: {e}")
+            async for chunk in self.fallback.chat_stream(messages, beliefs, temperature, max_tokens):
+                yield chunk
+
+    async def health_check(self):
+        return await self.primary.health_check()
+
+    async def close(self):
+        await self.primary.close()
 
 
 __all__ = [
@@ -351,5 +456,6 @@ __all__ = [
     "ChatResponse",
     "StreamChunk",
     "OllamaProvider",
+    "FallbackProvider",
     "get_llm_provider",
 ]

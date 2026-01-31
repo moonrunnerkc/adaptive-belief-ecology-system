@@ -35,6 +35,7 @@ class InMemoryBeliefStore(BeliefStoreABC):
         max_confidence: Optional[float] = None,
         limit: int = 100,
         offset: int = 0,
+        session_id: Optional[str] = None,
     ) -> List[Belief]:
         results = []
         for b in self._beliefs.values():
@@ -47,6 +48,8 @@ class InMemoryBeliefStore(BeliefStoreABC):
             if min_confidence is not None and b.confidence < min_confidence:
                 continue
             if max_confidence is not None and b.confidence > max_confidence:
+                continue
+            if session_id is not None and b.session_id != session_id:
                 continue
             results.append(b)
 

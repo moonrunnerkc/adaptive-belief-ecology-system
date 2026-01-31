@@ -30,6 +30,7 @@ from .base import BeliefStoreABC, SnapshotStoreABC
 
 # Concrete implementations
 from .in_memory import InMemoryBeliefStore, InMemorySnapshotStore
+from .sqlite import SQLiteBeliefStore
 
 # Query functions
 from .snapshot_queries import (
@@ -71,4 +72,5 @@ __all__ = [
     # implementations
     "InMemoryBeliefStore",
     "InMemorySnapshotStore",
+    "SQLiteBeliefStore",
 ]
