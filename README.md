@@ -314,16 +314,54 @@ All 638 tests passing. Here's what was fixed and added:
 11. **Configurable Embedding Model**
     - `EMBEDDING_MODEL` env var (default: all-MiniLM-L6-v2)
 
+12. **User Authentication**
+    - JWT-based login/register system
+    - SQLite persistence for user accounts
+    - Protected routes requiring authentication
+    - Beliefs associated with user accounts
+
 ### Remaining Known Issues
 
 - Contradiction detection uses embeddings and antonym lists, not full semantic understanding
 
 ---
 
+## Authentication
+
+ABES includes a complete user authentication system:
+
+### Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/register` | POST | Create new account |
+| `/auth/login` | POST | Login, returns JWT token |
+| `/auth/me` | GET | Get current user (requires token) |
+| `/auth/logout` | POST | Logout (client discards token) |
+
+### How It Works
+
+1. Register with email, name, password (min 6 chars)
+2. Login to receive JWT token
+3. Include token in `Authorization: Bearer <token>` header
+4. Beliefs are associated with your user ID
+
+### Frontend
+
+The Next.js frontend handles auth automatically:
+- Redirects to `/login` if not authenticated
+- Stores token in localStorage
+- Shows user name and logout button in header
+
+### User Data Storage
+
+User accounts are stored in `data/users.db` (SQLite). This file is in `.gitignore` and will never be committed.
+
+---
+
 ## Limitations
 
 - Contradiction detection uses embeddings and antonym lists, not full semantic understanding
-- No authentication (session isolation is available but no user auth)
 
 ---
 
@@ -335,7 +373,6 @@ Not yet implemented:
 - [ ] Document ingestion service
 - [ ] Full semantic contradiction detection (LLM-based)
 - [ ] Benchmarks against production memory systems
-- [ ] Authentication and user management
 
 ---
 

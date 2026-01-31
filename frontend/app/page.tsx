@@ -4,8 +4,10 @@
 import { fetchStats, Stats } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import {
+    Activity,
     Brain,
     ChevronRight,
+    Database,
     FileText,
     GitBranch,
     LogOut,
