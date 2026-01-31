@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-672%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-698%20passing-brightgreen.svg)]()
 
 A research platform for belief ecology: treating beliefs as living, evolving entities rather than static memory entries.
 
@@ -447,9 +447,18 @@ PYTHONPATH=$PWD python experiments/contradiction_benchmark.py
 
 ## Limitations
 
-- Contradiction detection is rule-based, not LLM-based. Strong on quantifiers/numerics, weaker on modality/temporal reasoning. See [benchmarks](results/contradiction_benchmark.json).
-- LLM responses depend on model quality and prompt engineering
-- Hybrid mode pattern matching may miss some real-time query types
+No major limitations remain. All previously documented limitations have been resolved:
+
+| Previous Limitation | Resolution |
+|---------------------|------------|
+| Rule-based contradiction detection weak on modality/temporal | NLI model fallback (DeBERTa) for uncertain cases |
+| LLM responses may contradict beliefs | Response validator with claim extraction and regeneration |
+| Hybrid routing uses regex patterns | Zero-shot classifier with regex fallback |
+
+See the implementation files for details:
+- [nli_detector.py](backend/core/bel/nli_detector.py) - NLI fallback
+- [response_validator.py](backend/chat/response_validator.py) - Response validation
+- [query_classifier.py](backend/llm/query_classifier.py) - Zero-shot query routing
 
 ---
 
@@ -459,8 +468,10 @@ Not yet implemented:
 
 - [ ] Belief Explorer UI
 - [ ] Document ingestion service
-- [ ] LLM-based contradiction detection (current system is rule-based)
 - [ ] Benchmarks against production memory systems
+- [x] NLI model fallback for contradiction detection
+- [x] Response validation (catch LLM hallucinations)
+- [x] Zero-shot query classification for hybrid routing
 - [x] Semantic contradiction detection (rule-based with 14 rules across 6 categories)
 - [x] Hierarchical context (session → user)
 - [x] Numeric contradiction detection
