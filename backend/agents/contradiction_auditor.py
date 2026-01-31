@@ -1,13 +1,14 @@
 # Author: Bradley R. Kinnard
 """
 ContradictionAuditorAgent - detects high-tension belief pairs.
+Uses semantic rule-based detection with fallback to embedding heuristics.
 """
 
 import hashlib
 import logging
 import re
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Set, Tuple
 from uuid import UUID
@@ -16,6 +17,10 @@ import numpy as np
 
 from ..core.config import settings
 from ..core.models.belief import Belief
+from ..core.bel.semantic_contradiction import (
+    check_contradiction,
+    ContradictionResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,11 +179,15 @@ class ContradictionDetectedEvent:
     tension: float
     threshold: float
     timestamp: datetime
-    # Additional context for debugging and UI display
+    # display context
     contradicting_belief_id: UUID = None
     belief_content: str = ""
     contradicting_content: str = ""
     similarity_score: float = 0.0
+    # semantic detection fields
+    reason_codes: list = field(default_factory=list)
+    semantic_confidence: float = 0.0
+    fallback_used: bool = False
 
 
 class ContradictionAuditorAgent:
@@ -246,15 +255,15 @@ class ContradictionAuditorAgent:
 
     def _compute_tensions_from_cache(
         self, beliefs: List[Belief], similarity_threshold: float = 0.5
-    ) -> Tuple[dict[UUID, float], dict[UUID, Tuple[UUID, str, float]]]:
-        """Pairwise tension via cached embeddings.
+    ) -> Tuple[dict[UUID, float], dict[UUID, Tuple[UUID, str, float, ContradictionResult]]]:
+        """Pairwise tension via cached embeddings and semantic analysis.
 
         Returns:
             tension_scores: dict mapping belief_id to total tension
-            top_contradictors: dict mapping belief_id to (contradicting_id, content, similarity)
+            top_contradictors: dict mapping belief_id to
+                (contradicting_id, content, similarity, semantic_result)
 
-        Similarity threshold lowered to 0.5 to catch contradictions like
-        'warm' vs 'cold' which have ~0.69 similarity.
+        Uses semantic rule-based detection with embedding similarity as a gate.
         """
         if not beliefs:
             return {}, {}
@@ -273,8 +282,8 @@ class ContradictionAuditorAgent:
             embeddings.append(np.array(emb))
 
         tension_scores: dict[UUID, float] = {b.id: 0.0 for b in beliefs}
-        # Track the highest-similarity contradictor for each belief
-        top_contradictors: dict[UUID, Tuple[UUID, str, float]] = {}
+        # track highest-confidence contradictor for each belief
+        top_contradictors: dict[UUID, Tuple[UUID, str, float, ContradictionResult]] = {}
 
         n = len(beliefs)
         total_pairs = n * (n - 1) // 2
@@ -298,20 +307,25 @@ class ContradictionAuditorAgent:
                 similarity = float(np.dot(embeddings[i], embeddings[j]) / denom)
 
                 if similarity > similarity_threshold:
-                    # Check for contradiction: negation/antonyms OR numeric conflict
-                    is_contradiction = (
-                        _is_likely_negation(b1.content, b2.content) or
-                        _has_numeric_conflict(b1.content, b2.content, similarity)
-                    )
+                    # use semantic contradiction detector
+                    result = check_contradiction(b1.content, b2.content)
+
+                    is_contradiction = result.label == "contradiction"
 
                     if is_contradiction:
-                        tension_scores[b1.id] += similarity
-                        tension_scores[b2.id] += similarity
-                        # Track top contradictor for each
-                        if b1.id not in top_contradictors or similarity > top_contradictors[b1.id][2]:
-                            top_contradictors[b1.id] = (b2.id, b2.content, similarity)
-                        if b2.id not in top_contradictors or similarity > top_contradictors[b2.id][2]:
-                            top_contradictors[b2.id] = (b1.id, b1.content, similarity)
+                        # tension weighted by semantic confidence
+                        tension_val = similarity * (0.5 + 0.5 * result.confidence)
+                        tension_scores[b1.id] += tension_val
+                        tension_scores[b2.id] += tension_val
+
+                        # track top contradictor by semantic confidence
+                        current_b1 = top_contradictors.get(b1.id)
+                        if current_b1 is None or result.confidence > current_b1[3].confidence:
+                            top_contradictors[b1.id] = (b2.id, b2.content, similarity, result)
+
+                        current_b2 = top_contradictors.get(b2.id)
+                        if current_b2 is None or result.confidence > current_b2[3].confidence:
+                            top_contradictors[b2.id] = (b1.id, b1.content, similarity, result)
 
             if comparison_count > MAX_PAIRWISE_COMPARISONS:
                 break
@@ -390,8 +404,12 @@ class ContradictionAuditorAgent:
                 currently_above.add(belief.id)
                 # debounce: only fire if newly above
                 if belief.id not in self._above_threshold:
-                    # Get contradictor info if available
+                    # get contradictor info if available
                     contradictor = top_contradictors.get(belief.id)
+
+                    # extract semantic result if present
+                    semantic_result = contradictor[3] if contradictor else None
+
                     events.append(
                         ContradictionDetectedEvent(
                             belief_id=belief.id,
@@ -402,6 +420,9 @@ class ContradictionAuditorAgent:
                             belief_content=belief.content,
                             contradicting_content=contradictor[1] if contradictor else "",
                             similarity_score=contradictor[2] if contradictor else 0.0,
+                            reason_codes=semantic_result.reason_codes if semantic_result else [],
+                            semantic_confidence=semantic_result.confidence if semantic_result else 0.0,
+                            fallback_used=semantic_result.fallback_used if semantic_result else True,
                         )
                     )
 
